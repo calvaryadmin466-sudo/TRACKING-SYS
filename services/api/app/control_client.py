@@ -66,3 +66,17 @@ class ControlClient:
 
     async def send_text_message(self, reporting_id: str, flag: int, text: str) -> dict:
         return await self._post(f"/internal/devices/{reporting_id}/message", {"flag": flag, "text": text})
+
+    async def query_video_resources(self, reporting_id: str, channel: int = 0,
+                                    start_time: str = "", end_time: str = "",
+                                    alarm_type: int = 0, media_type: int = 0,
+                                    stream_type: int = 0, storage_type: int = 0) -> dict:
+        return await self._post(f"/internal/devices/{reporting_id}/video/query", {
+            "channel": channel,
+            "start_time": start_time,
+            "end_time": end_time,
+            "alarm_type": alarm_type,
+            "media_type": media_type,
+            "stream_type": stream_type,
+            "storage_type": storage_type,
+        })

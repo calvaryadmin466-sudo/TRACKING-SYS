@@ -35,6 +35,7 @@ func (cs *ControlServer) Serve(ctx context.Context) error {
 	mux.HandleFunc("POST /internal/devices/{id}/stream/start", cs.wrap(cs.streamStart))
 	mux.HandleFunc("POST /internal/devices/{id}/stream/stop", cs.wrap(cs.streamStop))
 	mux.HandleFunc("POST /internal/devices/{id}/playback", cs.wrap(cs.playback))
+	mux.HandleFunc("POST /internal/devices/{id}/video/query", cs.wrap(cs.videoQuery))
 	mux.HandleFunc("POST /internal/devices/{id}/message", cs.wrap(cs.textMessage))
 	mux.HandleFunc("GET /internal/video/streams", cs.wrap(cs.streams))
 
@@ -126,6 +127,28 @@ func (cs *ControlServer) playback(w http.ResponseWriter, r *http.Request) {
 		"ok": true, "video_host": host, "video_tcp_port": tcp})
 }
 
+type videoQueryReq struct {
+	Channel     int    `json:"channel"`
+	StartTime   string `json:"start_time"` // YYMMDDhhmmss
+	EndTime     string `json:"end_time"`
+	AlarmType   uint64 `json:"alarm_type"`
+	MediaType   int    `json:"media_type"`
+	StreamType  int    `json:"stream_type"`
+	StorageType int    `json:"storage_type"`
+}
+
+func (cs *ControlServer) videoQuery(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req videoQueryReq
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := cs.s.sendQueryResourceList(id, byte(req.Channel), req.StartTime, req.EndTime,
+		req.AlarmType, byte(req.MediaType), byte(req.StreamType), byte(req.StorageType)); err != nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "reporting_id": id})
+}
+
 type messageReq struct {
 	Flag int    `json:"flag"`
 	Text string `json:"text"`
@@ -213,6 +236,20 @@ func (s *Server) sendTextMessage(reportingID string, flag byte, text string) err
 	phone, hasVer, ver := sess.Identity()
 	frame := jt808.BuildTextMessage(phone, hasVer, ver, s.nextPlatformSerial(), flag, text)
 	s.log.Info("sent 0x8300 text message", "reporting_id", reportingID, "flag", flag, "text_len", len(text))
+	return sess.Send(frame)
+}
+
+func (s *Server) sendQueryResourceList(reportingID string, channel byte, startTime, endTime string,
+	alarmFlag uint64, mediaType, streamType, storageType byte) error {
+	sess, ok := s.registry.GetByPhone(reportingID)
+	if !ok {
+		return fmt.Errorf("device %s not connected", reportingID)
+	}
+	phone, hasVer, ver := sess.Identity()
+	frame := jt808.BuildQueryResourceList(phone, hasVer, ver, s.nextPlatformSerial(),
+		channel, bcdTime(startTime), bcdTime(endTime), alarmFlag, mediaType, streamType, storageType)
+	s.log.Info("sent 0x9205 query resource list", "reporting_id", reportingID, "channel", channel,
+		"start", startTime, "end", endTime)
 	return sess.Send(frame)
 }
 

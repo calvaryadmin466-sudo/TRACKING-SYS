@@ -23,6 +23,15 @@ class FakeControl:
     async def playback(self, rid, channel, start_time, end_time):
         return {"ok": True, "video_host": "203.0.113.9", "video_tcp_port": 7078}
 
+    async def query_video_resources(self, rid, channel=0, start_time="", end_time="",
+                                    alarm_type=0, media_type=0, stream_type=0, storage_type=0):
+        self.calls.append(("query", rid, channel, start_time, end_time))
+        if self.fail:
+            raise ControlError("device not connected")
+        return {"ok": True, "reporting_id": rid, "resources": [
+            {"channel": channel or 1, "start_time": start_time, "end_time": end_time, "file_size": 10485760}
+        ]}
+
     async def streams(self):
         return [{"sim": "100000000001", "channel": 1, "packets": 42, "video_frames": 40, "key_frames": 3}]
 
@@ -84,3 +93,53 @@ async def test_readonly_cannot_start_video(ctx):
     token = await login(client, "ro@test.local", "pwpwpwpw")
     r = await client.post(f"/api/devices/{dev}/video/live", headers=auth(token), json={"channel": 1})
     assert r.status_code == 403
+
+
+async def test_query_video_dispatches_command(ctx):
+    client, app = ctx
+    app.state.control = FakeControl()
+    dev = await app.state.store.inject_device("DEV-V-Q1")
+    token = await login(client)
+    payload = {
+        "channel": 1,
+        "start_time": "261104000000",
+        "end_time": "261104235959",
+        "alarm_type": 0,
+        "media_type": 0,
+        "stream_type": 0,
+        "storage_type": 1,
+    }
+    r = await client.post(f"/api/devices/{dev}/video/query", headers=auth(token), json=payload)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["dispatched"] is True
+    assert body["reporting_id"] == "DEV-V-Q1"
+    assert len(body["resources"]) == 1
+    assert ("query", "DEV-V-Q1", 1, "261104000000", "261104235959") in app.state.control.calls
+
+
+async def test_query_video_failure(ctx):
+    client, app = ctx
+    app.state.control = FakeControl(fail=True)
+    dev = await app.state.store.inject_device("DEV-V-Q2")
+    token = await login(client)
+    payload = {
+        "channel": 0,
+        "start_time": "261104000000",
+        "end_time": "261104235959",
+    }
+    r = await client.post(f"/api/devices/{dev}/video/query", headers=auth(token), json=payload)
+    assert r.status_code == 502
+    assert "not connected" in r.text
+
+
+async def test_query_video_validation(ctx):
+    client, app = ctx
+    dev = await app.state.store.inject_device("DEV-V-Q3")
+    token = await login(client)
+    # start_time too short
+    r = await client.post(f"/api/devices/{dev}/video/query", headers=auth(token), json={
+        "start_time": "123", "end_time": "261104235959"
+    })
+    assert r.status_code == 422
+

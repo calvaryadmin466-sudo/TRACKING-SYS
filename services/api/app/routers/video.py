@@ -35,6 +35,16 @@ class PlaybackReq(BaseModel):
     end_time: str = Field(min_length=12, max_length=12)
 
 
+class VideoQueryReq(BaseModel):
+    channel: int = Field(default=0, ge=0, le=64, description="Logical channel: 0=all, 1..64")
+    start_time: str = Field(min_length=12, max_length=12, description="YYMMDDhhmmss BCD start time")
+    end_time: str = Field(min_length=12, max_length=12, description="YYMMDDhhmmss BCD end time")
+    alarm_type: int = Field(default=0, ge=0, description="Alarm filter mask (0=all)")
+    media_type: int = Field(default=0, ge=0, le=3, description="0=audio/video, 1=audio, 2=video, 3=any")
+    stream_type: int = Field(default=0, ge=0, le=2, description="0=all, 1=main, 2=sub")
+    storage_type: int = Field(default=0, ge=0, le=2, description="0=all, 1=disk, 2=backup/SD")
+
+
 async def _device_or_403(store: Store, principal: Principal, device_id: int):
     d = await store.get_device(device_id)
     if not d:
@@ -103,6 +113,42 @@ async def start_playback(device_id: int, body: PlaybackReq,
                                       entity_id=str(device_id), user_id=principal.user_id,
                                       detail=f"channel {body.channel} {body.start_time}-{body.end_time}"))
     return {"session": video_session_to_dict(await store.get_video_session(sid)), "note": NOTE}
+
+
+@router.post("/api/devices/{device_id}/video/query")
+async def query_video(device_id: int, body: VideoQueryReq,
+                      principal: Principal = Depends(require_video),
+                      store: Store = Depends(get_store),
+                      control: ControlClient = Depends(get_control)):
+    """Dispatch a 0x9205 remote AV resource list query to the device."""
+    d = await _device_or_403(store, principal, device_id)
+    try:
+        resp = await control.query_video_resources(
+            d.reporting_id,
+            channel=body.channel,
+            start_time=body.start_time,
+            end_time=body.end_time,
+            alarm_type=body.alarm_type,
+            media_type=body.media_type,
+            stream_type=body.stream_type,
+            storage_type=body.storage_type,
+        )
+    except ControlError as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"Query dispatch failed: {e}")
+
+    await store.save_audit(AuditEntry(
+        action="video_query", entity="device", entity_id=str(device_id),
+        user_id=principal.user_id,
+        detail=f"ch={body.channel} {body.start_time}-{body.end_time} media={body.media_type}",
+    ))
+    return {
+        "device_id": device_id,
+        "reporting_id": d.reporting_id,
+        "query": body.model_dump(),
+        "dispatched": True,
+        "note": "0x9205 query dispatched to terminal. Terminal responds asynchronously with 0x1205 resource list.",
+        "resources": resp.get("resources", []),
+    }
 
 
 @router.post("/api/video/sessions/{sid}/stop")

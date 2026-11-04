@@ -77,6 +77,24 @@ func BuildPlaybackRequest(phoneBCD []byte, hasVersion bool, version byte, serial
 	return buildFrame(MsgPlaybackRequest, phoneBCD, hasVersion, version, serial, body)
 }
 
+// BuildQueryResourceList builds a 0x9205 remote video resource list query packet.
+// channel: logical channel (0=all, 1..64)
+// startBCD/endBCD: 6-byte BCD YYMMDDhhmmss
+// alarmFlag: 8-byte uint64 alarm type bitmask (0 = no filter)
+// mediaType: 0 audio/video, 1 audio, 2 video, 3 audio or video
+// streamType: 0 all, 1 main stream, 2 sub stream
+// storageType: 0 all, 1 disk/primary, 2 backup/SD
+func BuildQueryResourceList(phoneBCD []byte, hasVersion bool, version byte, serial uint16,
+	channel byte, startBCD, endBCD []byte, alarmFlag uint64, mediaType, streamType, storageType byte) []byte {
+	body := make([]byte, 0, 1+12+8+3)
+	body = append(body, channel)
+	body = append(body, fixedBCD(startBCD)...)
+	body = append(body, fixedBCD(endBCD)...)
+	body = binary.BigEndian.AppendUint64(body, alarmFlag)
+	body = append(body, mediaType, streamType, storageType)
+	return buildFrame(MsgQueryResourceList, phoneBCD, hasVersion, version, serial, body)
+}
+
 // RealtimeAVRequest is a decoded 0x9101 body (used by the simulator/tests).
 type RealtimeAVRequest struct {
 	ServerIP   string
