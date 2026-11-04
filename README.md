@@ -116,6 +116,22 @@ Open http://localhost:8080 and sign in (`admin@example.com` / `admin12345`).
 With `DATABASE_URL` set, the dashboard shows real data from the ingestion server
 instead of the demo feed.
 
+### Dashboard (redesigned SPA)
+
+The dashboard is a build-free vanilla-JS single-page app (no framework) with a
+dark fleet-operations design system, sidebar navigation and inline SVG icons —
+served as static files by the API. Screens: **Fleet Overview**, **Live Tracking**
+(Leaflet + OSM, marker clustering, filters, search, follow, detail panel, live
+WebSocket with auto-reconnect and stale detection), **Vehicle Details**,
+**Device Management** (incl. authorized raw-packet diagnostics), **Trips &
+Playback**, **Alerts & Events** (acknowledge / resolve), **Geofences** (draw /
+delete on a map), **Reports & Analytics** (+ CSV export), **Video Monitoring**
+(JT/T 1078 control + live gateway stream stats — no fabricated footage),
+**Users & Roles**, **Audit Log** and **Settings**. It is responsive (collapsible
+nav, bottom-sheet lists on mobile). Vehicle status is derived from device
+communication and GPS timestamps, never from the WebSocket connection alone, and
+simulated data is always badged **SIMULATED**.
+
 Run the API tests:
 
 ```bash

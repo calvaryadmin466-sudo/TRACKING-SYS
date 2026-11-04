@@ -11,10 +11,12 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # Leaflet from cdnjs and OpenStreetMap tiles. Same-origin API + WebSocket.
 _CSP = (
     "default-src 'self'; "
-    "img-src 'self' data: https://*.tile.openstreetmap.org https://*.openstreetmap.org; "
+    "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.openstreetmap.org "
+    "https://cdnjs.cloudflare.com; "
     "script-src 'self' https://cdnjs.cloudflare.com; "
-    "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
-    "connect-src 'self'; font-src 'self' data:; "
+    "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+    "font-src 'self' data: https://fonts.gstatic.com; "
+    "connect-src 'self'; "
     "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 )
 

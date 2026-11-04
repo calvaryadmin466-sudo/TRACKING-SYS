@@ -2,60 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Vehicle Tracking</title>
-  <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
-        referrerpolicy="no-referrer" />
-  <link rel="stylesheet" href="style.css?v=stage4" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>FleetTrack — Vehicle Tracking</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" referrerpolicy="no-referrer" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="css/app.css?v=r3" />
 </head>
 <body>
-  <!-- Login overlay -->
-  <div id="login" class="login-overlay">
-    <form id="login-form" class="login-card">
-      <h1>Vehicle Tracking</h1>
-      <p class="muted">Sign in to your tracking platform</p>
-      <label>Email<input id="email" type="email" autocomplete="username" required /></label>
-      <label>Password<input id="password" type="password" autocomplete="current-password" required /></label>
-      <button type="submit">Sign in</button>
-      <div id="login-error" class="error"></div>
-    </form>
-  </div>
+  <div id="app-root"></div>
+  <div id="toasts"></div>
+  <div id="modal-root"></div>
 
-  <!-- App -->
-  <div id="app" class="app hidden">
-    <header class="topbar">
-      <div class="brand">Vehicle Tracking System</div>
-      <div id="summary" class="summary"></div>
-      <div class="spacer"></div>
-      <button id="alerts-btn" class="ghost">Alerts <span id="alerts-badge" class="badge-count">0</span></button>
-      <button id="draw-btn" class="ghost">Draw zone</button>
-      <span id="who" class="muted"></span>
-      <button id="logout" class="ghost">Logout</button>
-    </header>
-    <div class="body">
-      <aside class="sidebar">
-        <input id="search" class="search" type="search" placeholder="Search vehicle / device ID…" />
-        <div id="device-list" class="device-list"></div>
-      </aside>
-      <main class="map-wrap">
-        <div id="map"></div>
-        <div id="info" class="info-panel hidden"></div>
-        <div id="alerts" class="alerts-panel hidden">
-          <div class="alerts-head"><b>Recent alerts</b><button id="alerts-close" class="ghost">×</button></div>
-          <div id="alerts-list" class="alerts-list"></div>
-        </div>
-        <div id="draw-bar" class="draw-bar hidden">
-          <span id="draw-hint">Click the map to add zone points (min 3)</span>
-          <button id="draw-finish">Finish &amp; save</button>
-          <button id="draw-cancel">Cancel</button>
-        </div>
-      </main>
-    </div>
-  </div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
-          referrerpolicy="no-referrer"></script>
-  <script src="app.js?v=stage4"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js" referrerpolicy="no-referrer"></script>
+  <script type="module" src="js/app.js?v=r3"></script>
 </body>
 </html>
