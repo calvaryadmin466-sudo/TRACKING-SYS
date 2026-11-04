@@ -19,13 +19,18 @@ export function baseLayers() {
 }
 
 // A circular marker with a heading arrow, colored by status.
-export function vehicleIcon(color, heading, moving) {
+// opts: { size } marker diameter in px (default 14); { opacity } 0..1 (default 1).
+export function vehicleIcon(color, heading, moving, opts = {}) {
+  const dot = opts.size || 14;
+  const op = opts.opacity == null ? 1 : opts.opacity;
+  const box = dot + 4;
+  const aw = Math.round(dot * 0.86);
   const arrow = moving
-    ? `<div style="position:absolute;top:-9px;left:50%;transform:translateX(-50%) rotate(${heading || 0}deg);transform-origin:50% 16px">
-         <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 0 L11 11 L6 8 L1 11 Z" fill="${color}"/></svg></div>`
+    ? `<div style="position:absolute;top:${-Math.round(dot * 0.62)}px;left:50%;transform:translateX(-50%) rotate(${heading || 0}deg);transform-origin:50% ${dot + 2}px">
+         <svg width="${aw}" height="${aw}" viewBox="0 0 12 12"><path d="M6 0 L11 11 L6 8 L1 11 Z" fill="${color}"/></svg></div>`
     : "";
   return L.divIcon({
-    className: "", iconSize: [18, 18], iconAnchor: [9, 9],
-    html: `<div style="position:relative"><div class="marker-veh" style="width:14px;height:14px;background:${color}"></div>${arrow}</div>`,
+    className: "", iconSize: [box, box], iconAnchor: [box / 2, box / 2],
+    html: `<div style="position:relative;opacity:${op}"><div class="marker-veh" style="width:${dot}px;height:${dot}px;background:${color}"></div>${arrow}</div>`,
   });
 }
