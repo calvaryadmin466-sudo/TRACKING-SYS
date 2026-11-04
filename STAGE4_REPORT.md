@@ -50,12 +50,15 @@ captures and meters **real** device streams only, and it shows **no fake video**
   lengths (video 30 / audio 26 / transparent 18), field offsets, SIM/channel,
   body framing and concatenated-packet splitting all pass. This mirrors the Go
   parser's logic.
-- **Go build / `go test` / live end-to-end loop: NOT RUN THIS SESSION.** The
-  portable Go toolchain was cleaned up between turns and could not be
-  re-downloaded — go.dev and Google's CDN were severely throttled this session and
-  the 79 MB archive repeatedly stalled. The Go Stage 4 code is written and
-  reviewed, and it only adds new packages plus small edits to the Stage 1-3 Go
-  code that **did** build and pass `go test` earlier this session.
+- **Go build / `go test` / live end-to-end loop: VERIFIED (2026-11-04).** After the
+  Go toolchain finally downloaded, `go build ./...`, `go vet ./...` and
+  `go test ./...` all pass (incl. the new `jt1078` package tests). The full live
+  loop was run: ingestion (`:7808` + gateway `:7078` + control `:7900`) + the
+  device simulator → the control API sent `0x9101` → the simulator dialed the
+  gateway and streamed labelled 1078 packets → the gateway metered genuine packets
+  (**122 packets, 122 video frames, 9 key frames, ~123 KB** for sim
+  `100000000001` ch 1). This exercises the entire video command + capture path end
+  to end (everything except browser playback, below).
 
 ### To verify the Go side + the live loop (on any machine with Go 1.23+ or Docker)
 

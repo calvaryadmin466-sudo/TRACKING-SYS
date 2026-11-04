@@ -64,10 +64,9 @@ limit, production refuses the default secret), plus all Stage 1-4 tests.
 
 ## 6. Not done / caveats
 
-- **Go build/`go test`** (ingestion incl. the new `cmd/loadtest`, and Stage 4)
-  still not run this session — the Go toolchain could not be downloaded (network
-  throttling). Run `cd services/ingestion && go test ./... && go build ./...` on a
-  host with Go 1.23+.
+- **Go build/`go test`** (ingestion incl. the new `cmd/loadtest`, and Stage 4):
+  VERIFIED (2026-11-04) once the toolchain downloaded — `go build`, `go vet` and
+  `go test ./...` all pass, and the live video loop ran (see Stage 4 report).
 - **Docker/PostGIS stack not launched here** (no container registry access in this
   environment); the compose files + overlay are complete — run
   `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
