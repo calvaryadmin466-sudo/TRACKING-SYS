@@ -39,9 +39,13 @@ go run ./cmd/simulator -addr 127.0.0.1:7808 -count 5
 ```
 
 You will see registration → auth → heartbeat → location, and the positions land
-in the `gps_positions` table (with `simulated = false` for now — the simulator is
-clearly labelled in logs; production/simulator separation is enforced via the
-`simulated` columns as real devices are onboarded).
+in the `gps_positions` table. The simulator and load-test tools identify
+themselves at registration (manufacturer `SIMUL`/`LOAD`, or a `-SIM` model
+suffix), and the ingestion server flags their device, every position and every
+alarm event with `simulated = true` end-to-end — persisted in the `simulated`
+columns and badged **SIMULATED** in the UI. Genuine XV-900-8 terminals never
+match those codes, so real and simulated data stay separate throughout. This is
+covered by `TestSimulatedDeviceFlaggedEndToEnd` in the ingestion server tests.
 
 ## Running without Docker (development)
 
