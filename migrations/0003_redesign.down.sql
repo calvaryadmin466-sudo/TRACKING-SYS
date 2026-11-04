@@ -1,0 +1,10 @@
+BEGIN;
+DROP INDEX IF EXISTS idx_events_open;
+ALTER TABLE events DROP COLUMN IF EXISTS longitude;
+ALTER TABLE events DROP COLUMN IF EXISTS latitude;
+ALTER TABLE events DROP COLUMN IF EXISTS resolved_at;
+ALTER TABLE events DROP COLUMN IF EXISTS resolved;
+ALTER TABLE events DROP COLUMN IF EXISTS acknowledged_at;
+ALTER TABLE events DROP COLUMN IF EXISTS acknowledged_by;
+ALTER TABLE events DROP COLUMN IF EXISTS acknowledged;
+COMMIT;

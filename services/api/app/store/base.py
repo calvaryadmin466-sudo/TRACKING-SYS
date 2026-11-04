@@ -117,6 +117,7 @@ class AuditEntry:
     detail: str = ""
     user_id: Optional[int] = None
     at: Optional[datetime] = None
+    id: Optional[int] = None
 
 
 @dataclass
@@ -130,6 +131,39 @@ class Event:
     value: Optional[float] = None
     at: Optional[datetime] = None
     id: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    acknowledged: bool = False
+    acknowledged_by: Optional[int] = None
+    acknowledged_at: Optional[datetime] = None
+    resolved: bool = False
+    resolved_at: Optional[datetime] = None
+
+
+@dataclass
+class Organization:
+    id: int
+    name: str
+
+
+@dataclass
+class Role:
+    id: int
+    name: str
+
+
+@dataclass
+class RawPacketView:
+    id: Optional[int]
+    reporting_id: str
+    received_at: Optional[datetime]
+    length: int
+    message_name: str
+    decoded: bool
+    checksum_ok: bool
+    hex: str
+    ascii: str
+    note: str
 
 
 @dataclass
@@ -291,3 +325,29 @@ class Store(abc.ABC):
 
     @abc.abstractmethod
     async def end_video_session(self, sid: int, status: str) -> None: ...
+
+    # --- Redesign: event ack/resolve, admin, audit, diagnostics ---
+
+    @abc.abstractmethod
+    async def get_event(self, eid: int) -> Optional[Event]: ...
+
+    @abc.abstractmethod
+    async def ack_event(self, eid: int, user_id: int) -> None: ...
+
+    @abc.abstractmethod
+    async def resolve_event(self, eid: int) -> None: ...
+
+    @abc.abstractmethod
+    async def list_users(self, org_id: Optional[int]) -> list[User]: ...
+
+    @abc.abstractmethod
+    async def list_roles(self) -> list[Role]: ...
+
+    @abc.abstractmethod
+    async def list_organizations(self) -> list[Organization]: ...
+
+    @abc.abstractmethod
+    async def list_audit(self, org_id: Optional[int], limit: int) -> list[AuditEntry]: ...
+
+    @abc.abstractmethod
+    async def list_raw_packets(self, reporting_id: str, limit: int) -> list[RawPacketView]: ...

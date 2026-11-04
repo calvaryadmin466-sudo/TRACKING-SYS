@@ -109,6 +109,54 @@ def event_to_dict(e: Event) -> dict:
         "detail": e.detail,
         "value": e.value,
         "at": _iso(e.at),
+        "latitude": e.latitude,
+        "longitude": e.longitude,
+        "acknowledged": e.acknowledged,
+        "acknowledged_by": e.acknowledged_by,
+        "acknowledged_at": _iso(e.acknowledged_at),
+        "resolved": e.resolved,
+        "resolved_at": _iso(e.resolved_at),
+    }
+
+
+def user_to_dict(u) -> dict:
+    return {
+        "id": u.id,
+        "email": u.email,
+        "full_name": u.full_name,
+        "role": u.role_name,
+        "role_id": u.role_id,
+        "organization_id": u.organization_id,
+        "is_active": u.is_active,
+        "created_at": _iso(u.created_at),
+        "last_login_at": _iso(u.last_login_at),
+    }
+
+
+def audit_to_dict(a) -> dict:
+    return {
+        "id": a.id,
+        "user_id": a.user_id,
+        "action": a.action,
+        "entity": a.entity,
+        "entity_id": a.entity_id,
+        "detail": a.detail,
+        "at": _iso(a.at),
+    }
+
+
+def packet_to_dict(p) -> dict:
+    return {
+        "id": p.id,
+        "reporting_id": p.reporting_id,
+        "received_at": _iso(p.received_at),
+        "length": p.length,
+        "message_name": p.message_name,
+        "decoded": p.decoded,
+        "checksum_ok": p.checksum_ok,
+        "hex": p.hex,
+        "ascii": p.ascii,
+        "note": p.note,
     }
 
 

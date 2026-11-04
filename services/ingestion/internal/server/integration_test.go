@@ -147,6 +147,39 @@ func TestFullDeviceFlow(t *testing.T) {
 	}
 }
 
+func TestSimulatedDeviceFlaggedEndToEnd(t *testing.T) {
+	_, st, addr := startTestServer(t)
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+	r := bufio.NewReader(conn)
+
+	phone := jt808.EncodePhone("100000000042", false)
+	// Register as a simulator (manufacturer "SIMUL").
+	reg := jt808.Registration{ManufacturerID: "SIMUL", TerminalModel: "XV-900-8-SIM", TerminalID: "SIM0001"}
+	if _, err := conn.Write(jt808.BuildRegister(phone, false, 0, 1, reg)); err != nil {
+		t.Fatalf("write register: %v", err)
+	}
+	readFrame(t, r) // registration response
+
+	dev, ok, _ := st.GetDeviceByReportingID(context.Background(), "100000000042")
+	if !ok || !dev.Simulated {
+		t.Fatalf("simulated device not flagged: ok=%v simulated=%v", ok, dev.Simulated)
+	}
+
+	loc := jt808.Location{ACC: true, Positioned: true, Valid: true, Latitude: 22.5, Longitude: 88.3, DeviceTime: time.Now().UTC()}
+	if _, err := conn.Write(jt808.BuildLocation(phone, false, 0, 2, loc)); err != nil {
+		t.Fatalf("write location: %v", err)
+	}
+	readFrame(t, r) // location ack
+	p, okp := st.LastPosition()
+	if !okp || !p.Simulated {
+		t.Fatalf("position not flagged simulated: %+v", p)
+	}
+}
+
 func TestUnknownFrameNotDiscarded(t *testing.T) {
 	_, st, addr := startTestServer(t)
 	conn, err := net.Dial("tcp", addr)

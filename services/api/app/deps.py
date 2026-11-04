@@ -60,6 +60,19 @@ def require_video(principal: Principal = Depends(current_principal)) -> Principa
     return principal
 
 
+def require_operator(principal: Principal = Depends(current_principal)) -> Principal:
+    # Operational actions (e.g. acknowledging alerts) — everyone except read-only.
+    if principal.role == "readonly":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "read-only users cannot perform this action")
+    return principal
+
+
+def require_user_admin(principal: Principal = Depends(current_principal)) -> Principal:
+    if principal.role not in ("super_admin", "company_admin"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "user administration requires an admin role")
+    return principal
+
+
 def get_control(request: Request):
     return request.app.state.control
 

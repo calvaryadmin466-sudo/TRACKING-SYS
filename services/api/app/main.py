@@ -16,7 +16,9 @@ from .hardening import RateLimiter, SecurityHeadersMiddleware
 from .demo_feed import run_demo_feed
 from .engine_runner import run_engine
 from .live import router as live_router
-from .routers import auth, devices, events, geofences, health, positions, trips, vehicles, video
+from .routers import (
+    admin, auth, devices, events, geofences, health, positions, reports, trips, vehicles, video,
+)
 from .security import hash_password
 from .store.base import Geofence, Store, User
 from .store.memory import MemoryStore
@@ -118,6 +120,8 @@ def create_app() -> FastAPI:
     app.include_router(events.router)
     app.include_router(trips.router)
     app.include_router(video.router)
+    app.include_router(reports.router)
+    app.include_router(admin.router)
     app.include_router(live_router)
 
     # Dashboard (build-free static assets) served at the root, after API routes.

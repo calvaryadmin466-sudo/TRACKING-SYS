@@ -5,12 +5,24 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net"
+	"strings"
 	"time"
 
 	"tracking/ingestion/internal/inspector"
 	"tracking/ingestion/internal/jt808"
 	"tracking/ingestion/internal/store"
 )
+
+// isSimulatedRegistration recognises devices created by this project's simulator
+// / load-test tools so their data can be flagged simulated end-to-end. Real
+// terminals never use these manufacturer codes or the "-SIM" model suffix.
+func isSimulatedRegistration(reg *jt808.Registration) bool {
+	mf := strings.ToUpper(reg.ManufacturerID)
+	if mf == "SIMUL" || mf == "LOAD" {
+		return true
+	}
+	return strings.Contains(strings.ToUpper(reg.TerminalModel), "SIM")
+}
 
 // handleFrame decodes one reassembled frame, persists a raw-packet diagnostic
 // record (always), dispatches recognised messages and writes the appropriate
@@ -108,6 +120,14 @@ func (s *Server) handleRegister(ctx context.Context, conn net.Conn, sess *Sessio
 		dev.Manufacturer = reg.ManufacturerID
 		dev.Plate = reg.Plate
 		sess.setSerial(reg.TerminalID)
+		// Data integrity: flag devices that identify themselves as simulators so
+		// their records stay distinct from genuine device data everywhere.
+		if isSimulatedRegistration(reg) {
+			dev.Simulated = true
+			sess.setSimulated(true)
+			s.log.Info("device flagged simulated", "reporting_id", msg.Header.ID,
+				"manufacturer", reg.ManufacturerID, "model", reg.TerminalModel)
+		}
 	}
 	authCode := generateAuthCode()
 	dev.AuthCode = authCode
@@ -171,6 +191,7 @@ func (s *Server) handleLocation(ctx context.Context, conn net.Conn, sess *Sessio
 		StatusFlag:  loc.Status,
 		Satellites:  loc.Satellites,
 		MileageKM:   loc.MileageKM,
+		Simulated:   sess.Simulated(),
 		RawHex:      inspector.Hex(msg.Body),
 	}
 	if err := s.store.SavePosition(ctx, pos); err != nil {

@@ -89,7 +89,8 @@ class EventEngine:
 
         def ev(type_: str, severity: str, detail: str = "", value: float | None = None):
             events.append(Event(device_id=pos.device_id, reporting_id=pos.reporting_id,
-                                type=type_, severity=severity, detail=detail, value=value, at=now))
+                                type=type_, severity=severity, detail=detail, value=value, at=now,
+                                latitude=pos.latitude, longitude=pos.longitude))
 
         # Ignition (ACC) transitions.
         if st.acc is not None and pos.acc != st.acc:

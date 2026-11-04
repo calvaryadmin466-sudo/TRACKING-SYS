@@ -3,10 +3,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from fastapi import Query
+
 from ..deps import current_principal, get_settings, get_store, require_manage
 from ..rbac import Principal
 from ..schemas import DeviceUpdate
-from ..serialize import device_to_dict
+from ..serialize import device_to_dict, packet_to_dict
 from ..store.base import AuditEntry, DevicePatch, Store
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
@@ -63,3 +65,22 @@ async def update_device(device_id: int, body: DeviceUpdate,
                                       detail=body.model_dump_json()))
     updated = await store.get_device(device_id)
     return device_to_dict(updated, settings)
+
+
+@router.get("/{device_id}/packets")
+async def device_packets(device_id: int, limit: int = Query(default=100, ge=1, le=1000),
+                         principal: Principal = Depends(require_manage),
+                         store: Store = Depends(get_store)):
+    """Authorized raw-packet diagnostics for a device (manage roles only).
+
+    Raw packets are captured by the Go ingestion server into PostgreSQL; in the
+    in-memory dev store this returns empty.
+    """
+    d = await store.get_device(device_id)
+    if not d:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "device not found")
+    if not principal.can_access_org(d.organization_id):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "device belongs to another organization")
+    packets = await store.list_raw_packets(d.reporting_id, limit)
+    return {"device_id": device_id, "reporting_id": d.reporting_id,
+            "count": len(packets), "packets": [packet_to_dict(p) for p in packets]}

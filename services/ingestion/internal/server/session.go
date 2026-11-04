@@ -21,6 +21,7 @@ type Session struct {
 	hasVersion    bool
 	version       byte
 	authenticated bool
+	simulated     bool
 	deviceDBID    int64
 	connectedAt   time.Time
 	lastSeen      time.Time
@@ -93,6 +94,20 @@ func (s *Session) setAuthenticated(v bool) {
 	s.mu.Lock()
 	s.authenticated = v
 	s.mu.Unlock()
+}
+
+func (s *Session) setSimulated(v bool) {
+	s.mu.Lock()
+	s.simulated = v
+	s.mu.Unlock()
+}
+
+// Simulated reports whether this device identified itself as a simulator, so its
+// data can be kept distinct from genuine device data throughout the system.
+func (s *Session) Simulated() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.simulated
 }
 
 func (s *Session) touch(t time.Time) {

@@ -11,7 +11,7 @@ import asyncpg
 
 from .base import (
     AuditEntry, CameraChannel, DevicePatch, DeviceStatus, Event, Geofence, LivePosition,
-    Position, Store, Trip, User, Vehicle, VideoSession,
+    Organization, Position, RawPacketView, Role, Store, Trip, User, Vehicle, VideoSession,
 )
 
 _DEVICE_SELECT = """
@@ -203,13 +203,26 @@ class PostgresStore(Store):
 
     async def save_event(self, e: Event) -> int:
         return await self.pool.fetchval("""
-            INSERT INTO events (device_id, reporting_id, type, severity, value, detail, at)
-            VALUES ($1,$2,$3,$4,$5,$6, COALESCE($7, now())) RETURNING id""",
-            e.device_id, e.reporting_id, e.type, e.severity, e.value, e.detail, e.at)
+            INSERT INTO events (device_id, reporting_id, type, severity, value, detail, at,
+                                latitude, longitude)
+            VALUES ($1,$2,$3,$4,$5,$6, COALESCE($7, now()), $8, $9) RETURNING id""",
+            e.device_id, e.reporting_id, e.type, e.severity, e.value, e.detail, e.at,
+            e.latitude, e.longitude)
+
+    @staticmethod
+    def _event_from_row(r) -> Event:
+        return Event(id=r[0], device_id=r[1], reporting_id=r[2], type=r[3], severity=r[4],
+                     value=r[5], detail=r[6], at=r[7], latitude=r[8], longitude=r[9],
+                     acknowledged=r[10], acknowledged_by=r[11], acknowledged_at=r[12],
+                     resolved=r[13], resolved_at=r[14])
+
+    _EVENT_COLS = ("e.id, e.device_id, e.reporting_id, e.type, e.severity, e.value, e.detail, "
+                   "e.at, e.latitude, e.longitude, e.acknowledged, e.acknowledged_by, "
+                   "e.acknowledged_at, e.resolved, e.resolved_at")
 
     async def list_events(self, org_id, device_id, since, types, limit) -> list[Event]:
-        rows = await self.pool.fetch("""
-            SELECT e.id, e.device_id, e.reporting_id, e.type, e.severity, e.value, e.detail, e.at
+        rows = await self.pool.fetch(f"""
+            SELECT {self._EVENT_COLS}
             FROM events e
             LEFT JOIN tracking_devices d ON d.id = e.device_id
             WHERE ($1::bigint IS NULL OR d.organization_id = $1)
@@ -218,8 +231,60 @@ class PostgresStore(Store):
               AND ($4::text[] IS NULL OR e.type = ANY($4))
             ORDER BY e.at DESC LIMIT $5""",
             org_id, device_id, since, types, limit or 200)
-        return [Event(id=r[0], device_id=r[1], reporting_id=r[2], type=r[3], severity=r[4],
-                      value=r[5], detail=r[6], at=r[7]) for r in rows]
+        return [self._event_from_row(r) for r in rows]
+
+    async def get_event(self, eid) -> Optional[Event]:
+        r = await self.pool.fetchrow(f"SELECT {self._EVENT_COLS} FROM events e WHERE e.id=$1", eid)
+        return self._event_from_row(r) if r else None
+
+    async def ack_event(self, eid, user_id) -> None:
+        await self.pool.execute("""
+            UPDATE events SET acknowledged=TRUE, acknowledged_by=$2, acknowledged_at=now()
+            WHERE id=$1""", eid, user_id)
+
+    async def resolve_event(self, eid) -> None:
+        await self.pool.execute(
+            "UPDATE events SET resolved=TRUE, resolved_at=now() WHERE id=$1", eid)
+
+    async def list_users(self, org_id) -> list[User]:
+        rows = await self.pool.fetch("""
+            SELECT u.id, u.organization_id, u.role_id, r.name, u.email, '', u.full_name,
+                   u.is_active, u.created_at, u.last_login_at
+            FROM users u JOIN roles r ON r.id = u.role_id
+            WHERE $1::bigint IS NULL OR u.organization_id = $1
+            ORDER BY u.id""", org_id)
+        return [User(id=r[0], organization_id=r[1], role_id=r[2], role_name=r[3], email=r[4],
+                     password_hash=r[5], full_name=r[6], is_active=r[7], created_at=r[8],
+                     last_login_at=r[9]) for r in rows]
+
+    async def list_roles(self) -> list[Role]:
+        rows = await self.pool.fetch("SELECT id, name FROM roles ORDER BY id")
+        return [Role(id=r[0], name=r[1]) for r in rows]
+
+    async def list_organizations(self) -> list[Organization]:
+        rows = await self.pool.fetch("SELECT id, name FROM organizations ORDER BY id")
+        return [Organization(id=r[0], name=r[1]) for r in rows]
+
+    async def list_audit(self, org_id, limit) -> list[AuditEntry]:
+        rows = await self.pool.fetch("""
+            SELECT a.id, a.user_id, a.action, a.entity, a.entity_id,
+                   COALESCE(a.detail->>'message',''), a.at
+            FROM audit_logs a
+            LEFT JOIN users u ON u.id = a.user_id
+            WHERE $1::bigint IS NULL OR u.organization_id = $1
+            ORDER BY a.at DESC LIMIT $2""", org_id, limit or 200)
+        return [AuditEntry(id=r[0], user_id=r[1], action=r[2], entity=r[3], entity_id=r[4],
+                           detail=r[5], at=r[6]) for r in rows]
+
+    async def list_raw_packets(self, reporting_id, limit) -> list[RawPacketView]:
+        rows = await self.pool.fetch("""
+            SELECT id, reporting_id, received_at, length, message_name, decoded, checksum_ok,
+                   hex, ascii, note
+            FROM raw_packets WHERE reporting_id=$1 ORDER BY received_at DESC LIMIT $2""",
+            reporting_id, limit or 100)
+        return [RawPacketView(id=r[0], reporting_id=r[1] or "", received_at=r[2], length=r[3],
+                              message_name=r[4], decoded=r[5], checksum_ok=r[6], hex=r[7],
+                              ascii=r[8], note=r[9]) for r in rows]
 
     async def create_geofence(self, g: Geofence) -> int:
         ring = list(g.ring)

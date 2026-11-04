@@ -12,7 +12,7 @@ from typing import Optional
 
 from .base import (
     AuditEntry, CameraChannel, DevicePatch, DeviceStatus, Event, Geofence, LivePosition,
-    Position, Store, Trip, User, Vehicle, VideoSession,
+    Organization, Position, RawPacketView, Role, Store, Trip, User, Vehicle, VideoSession,
 )
 
 DEFAULT_ROLES = [
@@ -327,6 +327,62 @@ class MemoryStore(Store):
             if v:
                 v.status = status
                 v.ended_at = _utcnow()
+
+    # --- Redesign: event ack/resolve, admin, audit, diagnostics ---
+    async def get_event(self, eid) -> Optional[Event]:
+        async with self._lock:
+            for e in self._events:
+                if e.id == eid:
+                    return e
+            return None
+
+    async def ack_event(self, eid, user_id) -> None:
+        async with self._lock:
+            for e in self._events:
+                if e.id == eid:
+                    e.acknowledged = True
+                    e.acknowledged_by = user_id
+                    e.acknowledged_at = _utcnow()
+
+    async def resolve_event(self, eid) -> None:
+        async with self._lock:
+            for e in self._events:
+                if e.id == eid:
+                    e.resolved = True
+                    e.resolved_at = _utcnow()
+
+    async def list_users(self, org_id) -> list[User]:
+        async with self._lock:
+            out = [u for u in self._users_by_id.values()
+                   if org_id is None or u.organization_id == org_id]
+            return sorted(out, key=lambda x: x.id)
+
+    async def list_roles(self) -> list[Role]:
+        return [Role(id=rid, name=name) for name, rid in sorted(self._roles.items(), key=lambda kv: kv[1])]
+
+    async def list_organizations(self) -> list[Organization]:
+        async with self._lock:
+            return [Organization(id=i, name=n) for i, n in sorted(self._orgs.items())]
+
+    async def list_audit(self, org_id, limit) -> list[AuditEntry]:
+        async with self._lock:
+            # Org scoping for audit: entries by users in the org (super admin: all).
+            allowed = None
+            if org_id is not None:
+                allowed = {u.id for u in self._users_by_id.values() if u.organization_id == org_id}
+            out = []
+            for i, a in enumerate(self._audit):
+                if allowed is not None and a.user_id not in allowed:
+                    continue
+                a.id = a.id or (i + 1)
+                out.append(a)
+            out.sort(key=lambda x: x.at or _utcnow(), reverse=True)
+            return out[:limit] if limit else out
+
+    async def list_raw_packets(self, reporting_id, limit) -> list[RawPacketView]:
+        # In memory mode the API has no ingestion raw-packet store (that lives in
+        # the Go ingestion process / PostgreSQL). Return empty.
+        return []
 
     # --- memory-only helpers (used by the labelled demo feed) ---
     async def inject_device(self, reporting_id: str, *, serial: str = "", model: str = "",
