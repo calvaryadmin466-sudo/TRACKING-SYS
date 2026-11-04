@@ -11,9 +11,10 @@ export async function render(root, ctx) {
       <select class="input" id="v-dev" style="max-width:280px"><option value="">Select a device…</option></select>
     </div>
     <div class="card card-pad" id="v-head"></div>
-    <div class="grid-2 section-gap">
-      <div class="card"><div class="card-head">${icon("cctv")}<h3>Camera channels</h3></div><div class="card-pad" id="v-channels"></div></div>
-      <div class="card"><div class="card-head">${icon("monitor-play")}<h3>Live view</h3></div><div class="card-pad" id="v-live"></div></div>
+    <div class="card section-gap">
+      <div class="card-head">${icon("cctv")}<h3>Cameras</h3>
+        <span class="grow right muted" style="font-size:11px" id="v-cam-note"></span></div>
+      <div class="card-pad"><div class="cam-grid" id="v-cam-grid"></div></div>
     </div>
     <!-- Remote Video Files Query (0x9205) Results -->
     <div class="card section-gap" id="v-query-card" style="display:none">
@@ -36,15 +37,23 @@ export async function render(root, ctx) {
 
   let currentReportingId = null;
   let currentDeviceId = null;
+  let channels = [];                 // camera channels for the selected device
+  const openCh = new Map();          // channel_no -> { sid } for opened live streams
+
+  const camPlaceholder = `<div class="cam-ph">${icon("video-off", "i-lg")}
+      <div class="cam-ph-t">No decoded picture</div>
+      <div class="cam-ph-s">Live frames need a connected XV-900-8 and the media relay (pending hardware validation)</div></div>`;
 
   async function selectDevice(id) {
     currentDeviceId = id ? Number(id) : null;
-    const head = qs("#v-head"), chEl = qs("#v-channels"), liveEl = qs("#v-live");
-    if (!head || !chEl || !liveEl) return;
-    liveEl.innerHTML = "";
+    openCh.clear();
+    const head = qs("#v-head"), grid = qs("#v-cam-grid"), note = qs("#v-cam-note");
+    if (!head || !grid) return;
     if (!id) {
       head.innerHTML = `<div class="muted">Select a device to view its cameras and request streams.</div>`;
-      chEl.innerHTML = "";
+      grid.innerHTML = `<div class="state" style="grid-column:1/-1">${icon("cctv", "i-lg")}<div class="muted">No device selected</div></div>`;
+      if (note) note.textContent = "";
+      refreshIcons(grid);
       currentReportingId = null;
       return;
     }
@@ -54,37 +63,90 @@ export async function render(root, ctx) {
     head.innerHTML = `<div class="row wrap"><b style="font-size:15px">${esc(d.vehicle_registration || d.plate || d.reporting_id)}</b>
       ${statusBadge(d)} <span class="mono muted">${esc(d.reporting_id)}</span></div>
       <div class="muted" style="margin-top:6px;font-size:12px">${d.online ? "Device connected — control commands can be sent." : "Device offline — video commands will be rejected until it connects."}</div>`;
-    const cams = await get(`/api/devices/${id}/cameras`);
-    if (!qs("#v-channels")) return;
-    chEl.innerHTML = `<div class="row wrap">${cams.channels.map((c) => `
-      <button class="btn ${canVideo ? "" : "ghost"}" data-ch="${c.channel_no}" ${canVideo ? "" : "disabled"}>
-        ${icon("play")} CH${c.channel_no}</button>`).join("")}</div>
-      ${canVideo ? "" : `<div class="muted" style="margin-top:8px;font-size:12px">Your role cannot open video streams.</div>`}`;
-    refreshIcons(chEl);
-    qsa("[data-ch]", chEl).forEach((b) => b.addEventListener("click", () => requestLive(id, Number(b.dataset.ch))));
+    grid.innerHTML = `<div class="state" style="grid-column:1/-1"><div class="spinner"></div></div>`;
+    let cams;
+    try { cams = await get(`/api/devices/${id}/cameras`); } catch { cams = { channels: [] }; }
+    if (!qs("#v-cam-grid")) return;
+    channels = cams.channels || [];
+    if (note) note.textContent = canVideo ? `${channels.length} channels · tap a camera to open its live stream`
+      : "Your role cannot open video streams";
+    renderGrid();
   }
 
-  async function requestLive(id, channel) {
-    const liveEl = qs("#v-live");
-    if (!liveEl) return;
-    liveEl.innerHTML = `<div class="state"><div class="spinner"></div><div class="muted">Requesting channel ${channel}…</div></div>`;
+  function camTile(c) {
+    const n = c.channel_no;
+    const open = openCh.has(n);
+    return `<div class="cam-tile ${open ? "open" : ""}" id="cam-tile-${n}">
+      <div class="cam-view" id="cam-view-${n}">${open ? camPlaceholder : `<div class="cam-ph"><div class="cam-ph-t cam-off">Offline</div></div>`}</div>
+      <div class="cam-bar"><span class="cam-ch">CH${n}</span>
+        <span class="cam-stat" id="cam-stat-${n}">${open ? "starting…" : "idle"}</span>
+        <button class="cam-btn ${open ? "on" : ""}" data-cam="${n}" ${canVideo ? "" : "disabled"} title="${open ? "Stop" : "Open live"}">${icon(open ? "power-off" : "play")}</button></div>
+    </div>`;
+  }
+
+  function renderGrid() {
+    const grid = qs("#v-cam-grid");
+    if (!grid) return;
+    grid.innerHTML = channels.length
+      ? channels.map(camTile).join("")
+      : `<div class="state" style="grid-column:1/-1">${icon("cctv", "i-lg")}<div class="muted">No camera channels reported</div></div>`;
+    refreshIcons(grid);
+    qsa("[data-cam]", grid).forEach((b) => b.addEventListener("click", () => toggleCam(Number(b.dataset.cam))));
+  }
+
+  function updateTile(n) {
+    const tile = qs(`#cam-tile-${n}`);
+    if (!tile) return;
+    const open = openCh.has(n);
+    tile.classList.toggle("open", open);
+    qs(`#cam-view-${n}`).innerHTML = open ? camPlaceholder
+      : `<div class="cam-ph"><div class="cam-ph-t cam-off">Offline</div></div>`;
+    const stat = qs(`#cam-stat-${n}`); if (stat) stat.textContent = open ? "starting…" : "idle";
+    const btn = qs(`[data-cam="${n}"]`);
+    if (btn) { btn.classList.toggle("on", open); btn.title = open ? "Stop" : "Open live"; btn.innerHTML = icon(open ? "power-off" : "play"); refreshIcons(btn); }
+    refreshIcons(qs(`#cam-view-${n}`));
+  }
+
+  async function toggleCam(n) {
+    if (openCh.has(n)) return stopCam(n);
+    return openCam(n);
+  }
+
+  async function openCam(n) {
+    const stat = qs(`#cam-stat-${n}`); if (stat) stat.textContent = "requesting…";
     try {
-      const res = await post(`/api/devices/${id}/video/live`, { channel });
-      if (!qs("#v-live")) return;
-      liveEl.innerHTML = `
-        <div style="background:#0b1320;border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-          <div style="aspect-ratio:16/9;display:grid;place-items:center;color:var(--text-dim);text-align:center;padding:16px">
-            <div>${icon("video-off", "i-lg")}<div style="margin-top:8px">No decoded picture</div>
-            <div style="font-size:12px">JT/T 1078 → browser playback requires a connected device<br>and the media relay (pending hardware validation)</div></div></div>
-          <div style="padding:10px;border-top:1px solid var(--border);font-size:12px" class="muted">${esc(res.note)}</div>
-          <div style="padding:10px;border-top:1px solid var(--border)" id="v-livestat" class="muted">waiting for stream…</div>
-        </div>`;
-      refreshIcons(liveEl);
-      toast(`Live command sent for CH${channel}`, "success");
-      pollLiveStat(channel);
+      const res = await post(`/api/devices/${currentDeviceId}/video/live`, { channel: n });
+      openCh.set(n, { sid: res.session && res.session.id });
+      updateTile(n);
+      toast(`Live command sent for CH${n}`, "success");
+      refreshSessions();
     } catch (e) {
-      if (!qs("#v-live")) return;
-      liveEl.innerHTML = `<div class="badge offline" style="width:100%;justify-content:flex-start">${esc((e.detail && e.detail.error) || e.detail || "Could not start stream")}</div>`;
+      if (stat) stat.textContent = "failed";
+      toast(esc((e.detail && e.detail.error) || e.detail || "Could not start stream"), "error");
+    }
+  }
+
+  async function stopCam(n) {
+    const info = openCh.get(n);
+    openCh.delete(n);
+    updateTile(n);
+    if (info && info.sid) {
+      try { await post(`/api/video/sessions/${info.sid}/stop`, {}); } catch {}
+      refreshSessions();
+    }
+  }
+
+  function updateCamTiles(streams) {
+    for (const n of openCh.keys()) {
+      const stat = qs(`#cam-stat-${n}`); if (!stat) continue;
+      const s = (streams || []).find((x) => String(x.sim) === String(currentReportingId) && Number(x.channel) === n);
+      stat.innerHTML = s
+        ? `<span class="cam-rx">● ${s.packets} pkts · ${s.key_frames} KF</span>`
+        : "awaiting device…";
+      const view = qs(`#cam-view-${n}`);
+      if (view && !view.querySelector(".cam-live-badge")) {
+        const b = document.createElement("div"); b.className = "cam-live-badge"; b.textContent = "LIVE"; view.appendChild(b);
+      }
     }
   }
 
@@ -277,20 +339,10 @@ export async function render(root, ctx) {
 
   qs("#v-btn-query")?.addEventListener("click", openQueryModal);
 
-  async function pollLiveStat(channel) {
-    const el = qs("#v-livestat"); if (!el) return;
-    try {
-      const data = await get("/api/video/streams");
-      const s = (data.streams || []).find((x) => String(x.sim) === String(currentReportingId) && Number(x.channel) === channel);
-      el.innerHTML = s
-        ? `<b style="color:var(--teal)">● receiving</b> · ${s.packets} pkts · ${s.video_frames} video frames · ${s.key_frames} keyframes · ${Math.round((s.bytes || 0) / 1024)} KB`
-        : (data.note ? esc(data.note) : "no stream received yet (device must accept JT/T 1078)");
-    } catch {}
-  }
-
   async function refreshStreams() {
     try {
       const data = await get("/api/video/streams");
+      updateCamTiles(data.streams);
       const el = qs("#v-streams");
       if (!el) return;
       el.innerHTML = (data.streams && data.streams.length)

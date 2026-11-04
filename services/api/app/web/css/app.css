@@ -318,6 +318,30 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .rank-track { height: 7px; background: var(--panel-2); border-radius: var(--r-full); overflow: hidden; }
 .rank-fill { height: 100%; border-radius: var(--r-full); min-width: 4px; transition: width .4s ease; }
 
+/* ---------- Video camera grid ---------- */
+.cam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.cam-tile { border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; background: #0b1320; }
+.cam-tile.open { border-color: var(--primary); }
+.cam-view { aspect-ratio: 16 / 9; display: grid; place-items: center; position: relative; padding: 12px;
+  background: repeating-linear-gradient(45deg, #0b1320, #0b1320 10px, #0d1526 10px, #0d1526 20px); }
+.cam-ph { text-align: center; color: var(--text-dim); }
+.cam-ph .i { color: var(--text-dim); }
+.cam-ph-t { margin-top: 8px; font-weight: 600; font-size: 13px; color: var(--text-muted); }
+.cam-ph-t.cam-off { color: var(--text-dim); font-weight: 500; margin-top: 0; }
+.cam-ph-s { font-size: 11px; margin-top: 4px; color: var(--text-dim); max-width: 220px; }
+.cam-live-badge { position: absolute; top: 7px; left: 7px; background: var(--red); color: #fff; font-size: 9px;
+  font-weight: 700; letter-spacing: .05em; padding: 1px 6px; border-radius: 3px; }
+.cam-bar { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-top: 1px solid var(--border); background: var(--panel); }
+.cam-ch { font-weight: 700; font-size: 12px; }
+.cam-stat { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+.cam-rx { color: var(--teal); font-weight: 600; }
+.cam-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0;
+  border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--panel-2); color: var(--text); cursor: pointer; }
+.cam-btn:hover { background: var(--panel-3); }
+.cam-btn.on { background: var(--red); border-color: var(--red); color: #fff; }
+.cam-btn:disabled { opacity: .5; cursor: not-allowed; }
+.cam-btn .i { width: 15px; height: 15px; }
+
 /* ---------- Login ---------- */
 .login { height: 100%; display: grid; place-items: center; background:
   radial-gradient(1200px 500px at 70% -10%, rgba(50,130,246,.14), transparent), var(--bg); padding: 16px; }

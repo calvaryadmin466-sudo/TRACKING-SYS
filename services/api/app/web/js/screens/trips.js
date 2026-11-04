@@ -55,10 +55,10 @@ export async function render(root, ctx) {
     <div class="toolbar" style="flex-wrap:wrap;gap:6px">
       <select class="input" id="t-device" style="max-width:240px"><option value="">Select a vehicle…</option></select>
       <div style="display:flex;gap:4px;flex-wrap:wrap" id="t-presets">
-        <button class="btn btn-sm" data-preset="1h">1h ago</button>
-        <button class="btn btn-sm" data-preset="today">Today</button>
-        <button class="btn btn-sm" data-preset="yesterday">Yesterday</button>
-        <button class="btn btn-sm" data-preset="2d">2D ago</button>
+        <button class="btn sm" data-preset="1h">1h ago</button>
+        <button class="btn sm" data-preset="today">Today</button>
+        <button class="btn sm" data-preset="yesterday">Yesterday</button>
+        <button class="btn sm" data-preset="2d">2D ago</button>
       </div>
       <input class="input" type="datetime-local" id="t-from" style="max-width:190px" title="Begin time">
       <input class="input" type="datetime-local" id="t-to"   style="max-width:190px" title="End time">
