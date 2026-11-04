@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from .base import (
-    AuditEntry, CameraChannel, DevicePatch, DeviceStatus, Driver, Event, Geofence, LivePosition,
+    AuditEntry, CameraChannel, DeviceMessage, DevicePatch, DeviceStatus, Driver, Event, Geofence, LivePosition,
     MaintenanceItem, NotificationLogEntry, NotificationRule, Organization, Position,
     RawPacketView, Role, Store, Trip, User, Vehicle, VideoSession,
 )
@@ -43,10 +43,11 @@ class MemoryStore(Store):
         self._rules: dict[int, NotificationRule] = {}
         self._notifications: list[NotificationLogEntry] = []
         self._drivers: dict[int, Driver] = {}
+        self._device_messages: list[DeviceMessage] = []
         self._roles = {name: i + 1 for i, name in enumerate(DEFAULT_ROLES)}
         self._seq = {"user": 0, "org": 0, "vehicle": 0, "device": 0,
                      "event": 0, "geofence": 0, "trip": 0, "video": 0,
-                     "maint": 0, "rule": 0, "notif": 0, "driver": 0}
+                     "maint": 0, "rule": 0, "notif": 0, "driver": 0, "msg": 0}
 
     def _next(self, key: str) -> int:
         self._seq[key] += 1
@@ -532,6 +533,35 @@ class MemoryStore(Store):
             for v in self._vehicles.values():
                 if v.driver_id == driver_id:
                     v.driver_id = None
+
+    # --- device messages ---
+    async def save_device_message(self, m: DeviceMessage) -> int:
+        async with self._lock:
+            mid = self._next("msg")
+            m.id = mid
+            m.created_at = m.created_at or _utcnow()
+            dev = self._devices.get(m.device_id)
+            if dev:
+                m.reporting_id = dev.reporting_id
+            if m.user_id:
+                u = self._users_by_id.get(m.user_id)
+                if u:
+                    m.user_email = u.email
+            self._device_messages.append(m)
+            return mid
+
+    async def list_device_messages(self, org_id: Optional[int], device_id: Optional[int] = None, limit: int = 50) -> list[DeviceMessage]:
+        async with self._lock:
+            res = []
+            for m in reversed(self._device_messages):
+                if org_id is not None and m.organization_id != org_id:
+                    continue
+                if device_id is not None and m.device_id != device_id:
+                    continue
+                res.append(m)
+                if len(res) >= limit:
+                    break
+            return res
 
     # --- memory-only helpers (used by the labelled demo feed) ---
     async def inject_device(self, reporting_id: str, *, serial: str = "", model: str = "",

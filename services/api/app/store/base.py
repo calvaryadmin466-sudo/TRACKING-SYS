@@ -58,6 +58,22 @@ class Driver:
 
 
 @dataclass
+class DeviceMessage:
+    id: int
+    organization_id: Optional[int]
+    device_id: int
+    user_id: Optional[int]
+    flag: int
+    text: str
+    status: str = "sent"          # sent | failed | delivered
+    detail: str = ""
+    created_at: Optional[datetime] = None
+    # computed / display fields
+    reporting_id: str = ""
+    user_email: str = ""
+
+
+@dataclass
 class DeviceStatus:
     id: int
     reporting_id: str
@@ -472,3 +488,10 @@ class Store(abc.ABC):
 
     @abc.abstractmethod
     async def delete_driver(self, driver_id: int) -> None: ...
+
+    # --- Device text messaging (0x8300) ---
+    @abc.abstractmethod
+    async def save_device_message(self, m: DeviceMessage) -> int: ...
+
+    @abc.abstractmethod
+    async def list_device_messages(self, org_id: Optional[int], device_id: Optional[int] = None, limit: int = 50) -> list[DeviceMessage]: ...

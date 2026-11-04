@@ -1,4 +1,5 @@
 import { get, patch } from "../api.js";
+import { openMessageDialog } from "../message_dialog.js";
 import {
   icon, refreshIcons, qs, qsa, esc, fmtAge, fmtDateTime, statusBadge, simBadge, deviceStatus,
   modal, closeModal, toast, emptyHtml, loadingHtml,
@@ -45,11 +46,22 @@ export async function render(root, ctx) {
         <td>${d.active ? "<span class='badge online'><span class='dot'></span>yes</span>" : "<span class='badge offline'><span class='dot'></span>no</span>"}</td>
         <td class="right nowrap">
           <a class="btn ghost sm icon" href="#/vehicle/${d.id}" title="Details">${icon("info")}</a>
+          <button class="btn ghost sm icon" data-msg="${d.id}" title="Send text message">${icon("send")}</button>
           ${canManage ? `<button class="btn ghost sm icon" data-assign="${d.id}" title="Assign vehicle">${icon("link")}</button>
           <button class="btn ghost sm icon" data-active="${d.id}" title="${d.active ? "Deactivate" : "Activate"}">${icon(d.active ? "power-off" : "power")}</button>
           <button class="btn ghost sm icon" data-pkts="${d.id}" title="Raw packet diagnostics">${icon("file-search")}</button>` : ""}
         </td></tr>`).join("")}</tbody></table>`;
     refreshIcons(el);
+    qsa("[data-msg]", el).forEach((b) => b.addEventListener("click", () => {
+      const dev = devices.find((x) => x.id === Number(b.dataset.msg));
+      if (dev) {
+        openMessageDialog({
+          deviceId: dev.id,
+          vehicleName: dev.vehicle_registration || dev.plate || dev.reporting_id,
+          reportingId: dev.reporting_id,
+        });
+      }
+    }));
     qsa("[data-assign]", el).forEach((b) => b.addEventListener("click", () => assign(Number(b.dataset.assign))));
     qsa("[data-active]", el).forEach((b) => b.addEventListener("click", () => toggleActive(Number(b.dataset.active))));
     qsa("[data-pkts]", el).forEach((b) => b.addEventListener("click", () => showPackets(Number(b.dataset.pkts))));

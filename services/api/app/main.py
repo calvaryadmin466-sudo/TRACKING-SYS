@@ -18,7 +18,7 @@ from .engine_runner import run_engine
 from .live import router as live_router
 from .notification_runner import run_notifications
 from .routers import (
-    admin, auth, devices, drivers, events, geofences, health, maintenance, notifications, positions,
+    admin, auth, devices, drivers, events, geofences, health, maintenance, messages, notifications, positions,
     reports, trips, vehicles, video,
 )
 from .security import hash_password
@@ -128,6 +128,7 @@ def create_app() -> FastAPI:
     app.include_router(admin.router)
     app.include_router(maintenance.router)
     app.include_router(notifications.router)
+    app.include_router(messages.router)
     app.include_router(live_router)
 
     # Dashboard (build-free static assets) served at the root, after API routes.

@@ -1,5 +1,6 @@
 import { live } from "../store.js";
 import { baseLayers, COLORS, vehicleIcon } from "../map.js";
+import { openMessageDialog } from "../message_dialog.js";
 import {
   icon, refreshIcons, qs, qsa, esc, fmtAge, deviceStatus, isMoving, statusBadge, simBadge,
 } from "../ui.js";
@@ -119,11 +120,19 @@ export async function render(root, ctx) {
       ${kv("Last comm", fmtAge(d.last_seen_age_s))}
       <div class="row" style="margin-top:12px;gap:8px">
         <a class="btn sm" href="#/vehicle/${d.id}">${icon("info")} Details</a>
+        <button class="btn sm" data-msg>${icon("send")} Message</button>
         <button class="btn sm ${state.follow ? "primary" : ""}" data-follow>${icon("crosshair")} Follow</button>
       </div></div>`;
     refreshIcons(panel);
     qs("[data-x]", panel).addEventListener("click", () => { state.selected = null; renderDetail(); renderList(live.list()); });
     qs("[data-follow]", panel).addEventListener("click", () => { state.follow = !state.follow; renderDetail(); });
+    qs("[data-msg]", panel)?.addEventListener("click", () => {
+      openMessageDialog({
+        deviceId: d.id,
+        vehicleName: d.vehicle_registration || d.plate || d.reporting_id,
+        reportingId: d.reporting_id,
+      });
+    });
   }
 
   function select(id, pan) {

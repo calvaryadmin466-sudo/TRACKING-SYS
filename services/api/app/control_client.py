@@ -63,3 +63,6 @@ class ControlClient:
 
     async def device_status(self, reporting_id: str) -> dict:
         return await self._get(f"/internal/devices/{reporting_id}/status")
+
+    async def send_text_message(self, reporting_id: str, flag: int, text: str) -> dict:
+        return await self._post(f"/internal/devices/{reporting_id}/message", {"flag": flag, "text": text})

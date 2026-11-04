@@ -52,6 +52,22 @@ func BuildRegisterResp(reqHeader Header, platformSerial uint16, result byte, aut
 	return buildFrame(MsgRegisterResp, reqHeader.PhoneBCD, reqHeader.HasVersion, reqHeader.Version, platformSerial, body)
 }
 
+// BuildTextMessage builds a 0x8300 text message distribution packet to the terminal.
+// flag is a bitmask of delivery flags:
+//   bit 0: emergency
+//   bit 2: terminal display (LCD)
+//   bit 3: TTS voice broadcast
+//   bit 4: advertisement display
+//   bit 5: CAN fault / notification
+// text is the message body string.
+func BuildTextMessage(phoneBCD []byte, hasVersion bool, version byte, serial uint16, flag byte, text string) []byte {
+	textBytes := []byte(text)
+	body := make([]byte, 1+len(textBytes))
+	body[0] = flag
+	copy(body[1:], textBytes)
+	return buildFrame(MsgTextMessage, phoneBCD, hasVersion, version, serial, body)
+}
+
 // --- Terminal-side builders, used by the labelled device simulator only. ---
 
 // EncodePhone encodes a reporting ID into the BCD phone bytes for the chosen

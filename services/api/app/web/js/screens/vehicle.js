@@ -1,5 +1,6 @@
 import { get } from "../api.js";
 import { baseLayers } from "../map.js";
+import { openMessageDialog } from "../message_dialog.js";
 import {
   icon, refreshIcons, qs, esc, fmtAge, fmtDateTime, statusBadge, simBadge, sevBadge, num, emptyHtml,
 } from "../ui.js";
@@ -15,6 +16,7 @@ export async function render(root, ctx) {
       <a class="btn ghost icon" href="#/devices">${icon("arrow-left")}</a>
       <h2>${esc(name)}</h2> ${statusBadge(d)} ${simBadge(d)}
       <div class="grow"></div>
+      <button class="btn" id="v-btn-msg">${icon("send")} Message</button>
       <a class="btn" href="#/tracking">${icon("map-pin")} Track</a>
       <a class="btn" href="#/video">${icon("video")} Cameras</a>
     </div>
@@ -32,6 +34,14 @@ export async function render(root, ctx) {
     </div>
     <div class="card section-gap"><div class="card-head">${icon("cctv")}<h3>Camera channels</h3></div><div class="card-pad" id="v-cams"></div></div>`;
   refreshIcons(root);
+
+  qs("#v-btn-msg")?.addEventListener("click", () => {
+    openMessageDialog({
+      deviceId: id,
+      vehicleName: name,
+      reportingId: d.reporting_id,
+    });
+  });
 
   let driverName = "—";
   if (d.vehicle_id) {

@@ -7,7 +7,7 @@ from typing import Optional
 
 from .config import Settings
 from .store.base import (
-    CameraChannel, DeviceStatus, Driver, Event, Geofence, LivePosition, Position, Trip, Vehicle,
+    CameraChannel, DeviceMessage, DeviceStatus, Driver, Event, Geofence, LivePosition, Position, Trip, Vehicle,
     VideoSession,
 )
 
@@ -289,4 +289,20 @@ def live_to_dict(p: LivePosition) -> dict:
         "valid": p.valid,
         "device_time": _iso(p.device_time),
         "server_time": _iso(p.server_time),
+    }
+
+
+def device_message_to_dict(m: DeviceMessage) -> dict:
+    return {
+        "id": m.id,
+        "organization_id": m.organization_id,
+        "device_id": m.device_id,
+        "reporting_id": m.reporting_id,
+        "user_id": m.user_id,
+        "user_email": m.user_email,
+        "flag": m.flag,
+        "text": m.text,
+        "status": m.status,
+        "detail": m.detail,
+        "created_at": _iso(m.created_at),
     }

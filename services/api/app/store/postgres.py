@@ -10,7 +10,7 @@ from typing import Optional
 import asyncpg
 
 from .base import (
-    AuditEntry, CameraChannel, DevicePatch, DeviceStatus, Driver, Event, Geofence, LivePosition,
+    AuditEntry, CameraChannel, DeviceMessage, DevicePatch, DeviceStatus, Driver, Event, Geofence, LivePosition,
     MaintenanceItem, NotificationLogEntry, NotificationRule, Organization, Position,
     RawPacketView, Role, Store, Trip, User, Vehicle, VideoSession,
 )
@@ -549,3 +549,29 @@ class PostgresStore(Store):
     async def end_video_session(self, sid, status) -> None:
         await self.pool.execute(
             "UPDATE video_sessions SET status=$2, ended_at=now() WHERE id=$1", sid, status)
+
+    # --- Device text messaging (0x8300) ---
+    async def save_device_message(self, m: DeviceMessage) -> int:
+        return await self.pool.fetchval("""
+            INSERT INTO device_messages (organization_id, device_id, user_id, flag, text, status, detail, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, now()))
+            RETURNING id""",
+            m.organization_id, m.device_id, m.user_id, m.flag, m.text, m.status, m.detail, m.created_at)
+
+    async def list_device_messages(self, org_id: Optional[int], device_id: Optional[int] = None, limit: int = 50) -> list[DeviceMessage]:
+        rows = await self.pool.fetch("""
+            SELECT m.id, m.organization_id, m.device_id, m.user_id, m.flag, m.text, m.status, m.detail, m.created_at,
+                   COALESCE(d.reporting_id, ''), COALESCE(u.email, '')
+            FROM device_messages m
+            LEFT JOIN tracking_devices d ON d.id = m.device_id
+            LEFT JOIN users u ON u.id = m.user_id
+            WHERE ($1::bigint IS NULL OR m.organization_id = $1)
+              AND ($2::bigint IS NULL OR m.device_id = $2)
+            ORDER BY m.created_at DESC
+            LIMIT $3""",
+            org_id, device_id, limit)
+        return [DeviceMessage(
+            id=r[0], organization_id=r[1], device_id=r[2], user_id=r[3], flag=r[4],
+            text=r[5], status=r[6], detail=r[7], created_at=r[8],
+            reporting_id=r[9], user_email=r[10],
+        ) for r in rows]

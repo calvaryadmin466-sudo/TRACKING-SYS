@@ -19,6 +19,7 @@ const (
 
 	MsgPlatformGeneralResp uint16 = 0x8001 // platform -> terminal, generic ack
 	MsgRegisterResp        uint16 = 0x8100 // platform -> terminal, registration ack
+	MsgTextMessage         uint16 = 0x8300 // platform -> terminal, text message distribution
 )
 
 // messageNames maps known message IDs to a human label for logs and diagnostics.
@@ -32,6 +33,7 @@ var messageNames = map[uint16]string{
 	MsgLocationBatch:       "location_batch",
 	MsgPlatformGeneralResp: "platform_general_response",
 	MsgRegisterResp:        "register_response",
+	MsgTextMessage:         "text_message",
 }
 
 // MessageName returns a human-readable name for a message ID, or a hex fallback.

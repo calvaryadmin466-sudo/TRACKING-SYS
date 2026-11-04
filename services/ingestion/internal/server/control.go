@@ -35,6 +35,7 @@ func (cs *ControlServer) Serve(ctx context.Context) error {
 	mux.HandleFunc("POST /internal/devices/{id}/stream/start", cs.wrap(cs.streamStart))
 	mux.HandleFunc("POST /internal/devices/{id}/stream/stop", cs.wrap(cs.streamStop))
 	mux.HandleFunc("POST /internal/devices/{id}/playback", cs.wrap(cs.playback))
+	mux.HandleFunc("POST /internal/devices/{id}/message", cs.wrap(cs.textMessage))
 	mux.HandleFunc("GET /internal/video/streams", cs.wrap(cs.streams))
 
 	cs.srv = &http.Server{Addr: cs.s.cfg.ControlAddr, Handler: mux}
@@ -125,6 +126,22 @@ func (cs *ControlServer) playback(w http.ResponseWriter, r *http.Request) {
 		"ok": true, "video_host": host, "video_tcp_port": tcp})
 }
 
+type messageReq struct {
+	Flag int    `json:"flag"`
+	Text string `json:"text"`
+}
+
+func (cs *ControlServer) textMessage(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req messageReq
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := cs.s.sendTextMessage(id, byte(req.Flag), req.Text); err != nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "reporting_id": id})
+}
+
 func (cs *ControlServer) streams(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"streams": cs.gw.Stats()})
 }
@@ -186,6 +203,17 @@ func (s *Server) sendPlayback(reportingID string, channel byte, startTime, endTi
 	}
 	s.log.Info("sent 0x9201 playback request", "reporting_id", reportingID, "channel", channel)
 	return host, tcp, nil
+}
+
+func (s *Server) sendTextMessage(reportingID string, flag byte, text string) error {
+	sess, ok := s.registry.GetByPhone(reportingID)
+	if !ok {
+		return fmt.Errorf("device %s not connected", reportingID)
+	}
+	phone, hasVer, ver := sess.Identity()
+	frame := jt808.BuildTextMessage(phone, hasVer, ver, s.nextPlatformSerial(), flag, text)
+	s.log.Info("sent 0x8300 text message", "reporting_id", reportingID, "flag", flag, "text_len", len(text))
+	return sess.Send(frame)
 }
 
 // bcdTime converts a "YYMMDDhhmmss" string to 6 BCD bytes (zero-filled if blank).
