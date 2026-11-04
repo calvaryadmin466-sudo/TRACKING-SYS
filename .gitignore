@@ -1,0 +1,29 @@
+# Environment / secrets
+.env
+*.local
+
+# Go build artifacts
+/bin/
+*.exe
+*.out
+/services/ingestion/ingestion-server
+/services/ingestion/simulator
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local tooling (portable Go toolchain, etc.)
+/.tooling/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/

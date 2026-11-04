@@ -1,0 +1,293 @@
+"""Store abstraction and the data records exchanged with it.
+
+The three device identifiers are kept strictly separate, mirroring the Go
+ingestion side and the database schema:
+  - reporting_id : the JT/T 808 "phone number" the terminal reports with
+  - serial_number: the hardware serial / terminal id
+  - id           : the internal database primary key
+"""
+from __future__ import annotations
+
+import abc
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Optional
+
+
+@dataclass
+class User:
+    id: int
+    role_id: int
+    role_name: str
+    email: str
+    password_hash: str
+    full_name: str = ""
+    is_active: bool = True
+    organization_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+    last_login_at: Optional[datetime] = None
+
+
+@dataclass
+class Vehicle:
+    id: int
+    registration: str
+    vehicle_type: str = ""
+    driver_name: str = ""
+    organization_id: Optional[int] = None
+    fleet_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+
+
+@dataclass
+class DeviceStatus:
+    id: int
+    reporting_id: str
+    serial_number: str = ""
+    model: str = ""
+    manufacturer: str = ""
+    plate: str = ""
+    protocol: str = "JT808"
+    simulated: bool = False
+    active: bool = True
+    organization_id: Optional[int] = None
+    vehicle_id: Optional[int] = None
+    vehicle_registration: str = ""
+    first_seen: Optional[datetime] = None
+    last_seen: Optional[datetime] = None
+    # latest position (present when has_position)
+    has_position: bool = False
+    latitude: float = 0.0
+    longitude: float = 0.0
+    speed: float = 0.0
+    heading: int = 0
+    altitude: int = 0
+    acc: bool = False
+    positioned: bool = False
+    valid: bool = False
+    device_time: Optional[datetime] = None
+    server_time: Optional[datetime] = None
+
+
+@dataclass
+class Position:
+    device_id: int
+    reporting_id: str
+    latitude: float
+    longitude: float
+    speed: float = 0.0
+    heading: int = 0
+    altitude: int = 0
+    acc: bool = False
+    positioned: bool = False
+    valid: bool = False
+    satellites: int = 0
+    simulated: bool = False
+    device_time: Optional[datetime] = None
+    server_time: Optional[datetime] = None
+
+
+@dataclass
+class LivePosition:
+    device_id: int
+    reporting_id: str
+    latitude: float
+    longitude: float
+    speed: float = 0.0
+    heading: int = 0
+    acc: bool = False
+    valid: bool = False
+    device_time: Optional[datetime] = None
+    server_time: Optional[datetime] = None
+
+
+@dataclass
+class DevicePatch:
+    vehicle_id: Optional[int] = None
+    organization_id: Optional[int] = None
+    active: Optional[bool] = None
+    plate: Optional[str] = None
+
+
+@dataclass
+class AuditEntry:
+    action: str
+    entity: str
+    entity_id: str = ""
+    detail: str = ""
+    user_id: Optional[int] = None
+    at: Optional[datetime] = None
+
+
+@dataclass
+class Event:
+    """An operational/alarm event produced by the event engine."""
+    device_id: int
+    reporting_id: str
+    type: str
+    severity: str = "info"      # info | warning | alarm
+    detail: str = ""
+    value: Optional[float] = None
+    at: Optional[datetime] = None
+    id: Optional[int] = None
+
+
+@dataclass
+class Geofence:
+    id: int
+    organization_id: Optional[int]
+    name: str
+    ring: list = field(default_factory=list)  # [(lat, lon), ...]
+
+
+@dataclass
+class Trip:
+    id: int
+    device_id: int
+    reporting_id: str
+    started_at: datetime
+    ended_at: Optional[datetime] = None
+    distance_km: float = 0.0
+    max_speed: float = 0.0
+    path: list = field(default_factory=list)  # [(lat, lon), ...]
+
+
+@dataclass
+class CameraChannel:
+    device_id: int
+    channel_no: int
+    name: str = ""
+    enabled: bool = True
+
+
+@dataclass
+class VideoSession:
+    id: int
+    device_id: int
+    reporting_id: str
+    channel: int
+    kind: str = "live"            # live | playback
+    status: str = "requested"     # requested | active | ended | failed
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    video_host: str = ""
+    video_tcp_port: int = 0
+    detail: str = ""
+
+
+class Store(abc.ABC):
+    """Async persistence interface used by the API."""
+
+    # lifecycle
+    async def startup(self) -> None:  # optional
+        return None
+
+    async def close(self) -> None:  # optional
+        return None
+
+    # auth & tenancy
+    @abc.abstractmethod
+    async def get_user_by_email(self, email: str) -> Optional[User]: ...
+
+    @abc.abstractmethod
+    async def create_user(self, u: User) -> int: ...
+
+    @abc.abstractmethod
+    async def update_user_last_login(self, user_id: int, at: datetime) -> None: ...
+
+    @abc.abstractmethod
+    async def count_users(self) -> int: ...
+
+    @abc.abstractmethod
+    async def create_organization(self, name: str, slug: str) -> int: ...
+
+    @abc.abstractmethod
+    async def role_id_by_name(self, name: str) -> Optional[int]: ...
+
+    # devices
+    @abc.abstractmethod
+    async def list_devices(self, org_id: Optional[int]) -> list[DeviceStatus]: ...
+
+    @abc.abstractmethod
+    async def get_device(self, device_id: int) -> Optional[DeviceStatus]: ...
+
+    @abc.abstractmethod
+    async def update_device(self, device_id: int, patch: DevicePatch) -> None: ...
+
+    # vehicles
+    @abc.abstractmethod
+    async def list_vehicles(self, org_id: Optional[int]) -> list[Vehicle]: ...
+
+    @abc.abstractmethod
+    async def get_vehicle(self, vehicle_id: int) -> Optional[Vehicle]: ...
+
+    @abc.abstractmethod
+    async def create_vehicle(self, v: Vehicle) -> int: ...
+
+    @abc.abstractmethod
+    async def update_vehicle(self, v: Vehicle) -> None: ...
+
+    # positions
+    @abc.abstractmethod
+    async def list_positions(self, device_id: int, frm: Optional[datetime],
+                             to: Optional[datetime], limit: int) -> list[Position]: ...
+
+    @abc.abstractmethod
+    async def latest_positions(self, org_id: Optional[int],
+                               since: datetime) -> list[LivePosition]: ...
+
+    # audit
+    @abc.abstractmethod
+    async def save_audit(self, entry: AuditEntry) -> None: ...
+
+    # --- Stage 3: events, geofences, trips ---
+
+    @abc.abstractmethod
+    async def positions_since(self, since: datetime, org_id: Optional[int]) -> list[Position]: ...
+
+    @abc.abstractmethod
+    async def save_event(self, e: Event) -> int: ...
+
+    @abc.abstractmethod
+    async def list_events(self, org_id: Optional[int], device_id: Optional[int],
+                          since: Optional[datetime], types: Optional[list[str]],
+                          limit: int) -> list[Event]: ...
+
+    @abc.abstractmethod
+    async def create_geofence(self, g: Geofence) -> int: ...
+
+    @abc.abstractmethod
+    async def list_geofences(self, org_id: Optional[int]) -> list[Geofence]: ...
+
+    @abc.abstractmethod
+    async def get_geofence(self, gid: int) -> Optional[Geofence]: ...
+
+    @abc.abstractmethod
+    async def delete_geofence(self, gid: int) -> None: ...
+
+    @abc.abstractmethod
+    async def save_trip(self, t: Trip) -> int: ...
+
+    @abc.abstractmethod
+    async def list_trips(self, device_id: int, limit: int) -> list[Trip]: ...
+
+    @abc.abstractmethod
+    async def get_trip(self, tid: int) -> Optional[Trip]: ...
+
+    # --- Stage 4: video ---
+
+    @abc.abstractmethod
+    async def list_camera_channels(self, device_id: int) -> list[CameraChannel]: ...
+
+    @abc.abstractmethod
+    async def create_video_session(self, v: VideoSession) -> int: ...
+
+    @abc.abstractmethod
+    async def list_video_sessions(self, org_id: Optional[int], device_id: Optional[int],
+                                  limit: int) -> list[VideoSession]: ...
+
+    @abc.abstractmethod
+    async def get_video_session(self, sid: int) -> Optional[VideoSession]: ...
+
+    @abc.abstractmethod
+    async def end_video_session(self, sid: int, status: str) -> None: ...

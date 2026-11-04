@@ -1,0 +1,6 @@
+BEGIN;
+DROP INDEX IF EXISTS idx_events_severity;
+DROP INDEX IF EXISTS idx_events_type_at;
+ALTER TABLE events DROP COLUMN IF EXISTS value;
+ALTER TABLE events DROP COLUMN IF EXISTS severity;
+COMMIT;

@@ -1,0 +1,75 @@
+# Tracking platform - Stage 1 deployment.
+# Brings up PostgreSQL/PostGIS (auto-initialised with the migrations), Redis
+# (provisioned for session/cache use in later stages) and the JT/T 808 ingestion
+# server. The ingestion server is a standalone process: it keeps receiving device
+# messages regardless of any dashboard.
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tracking}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_env}
+      POSTGRES_DB: ${POSTGRES_DB:-tracking}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # Migrations run automatically on first initialisation of an empty volume.
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tracking} -d ${POSTGRES_DB:-tracking}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    # Reserved for device-session state and caching in Stage 2+.
+
+  ingestion:
+    build: ./services/ingestion
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      INGEST_JT808_ADDR: ":7808"
+      INGEST_JT1078_ADDR: ":7078"
+      INGEST_CONTROL_ADDR: "0.0.0.0:7900"
+      INGEST_CONTROL_TOKEN: "${CONTROL_TOKEN:-change_me_in_env}"
+      # Advertised to devices in 0x9101 as the media server to dial.
+      INGEST_VIDEO_PUBLIC_HOST: "${PUBLIC_HOST:-127.0.0.1}"
+      INGEST_VIDEO_PUBLIC_TCP_PORT: "${JT1078_PORT:-7078}"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-tracking}:${POSTGRES_PASSWORD:-change_me_in_env}@db:5432/${POSTGRES_DB:-tracking}?sslmode=disable"
+      INGEST_LOG_LEVEL: ${INGEST_LOG_LEVEL:-info}
+      INGEST_READ_TIMEOUT: ${INGEST_READ_TIMEOUT:-5m}
+    ports:
+      # Device TCP port. Point the terminal's ministry-standard server here.
+      - "${JT808_PORT:-7808}:7808"
+      # JT/T 1078 media gateway (device video stream connections).
+      - "${JT1078_PORT:-7078}:7078"
+    restart: unless-stopped
+
+  api:
+    build: ./services/api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER:-tracking}:${POSTGRES_PASSWORD:-change_me_in_env}@db:5432/${POSTGRES_DB:-tracking}"
+      JWT_SECRET: "${JWT_SECRET:-change_me_in_env}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@example.com}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin12345}"
+      ORG_NAME: "${ORG_NAME:-Default Organization}"
+      # Internal control API of the ingestion server (video commands + stream stats).
+      CONTROL_URL: "http://ingestion:7900"
+      CONTROL_TOKEN: "${CONTROL_TOKEN:-change_me_in_env}"
+      # DEMO_FEED defaults OFF in Postgres mode; real data comes from ingestion.
+    ports:
+      - "${API_PORT:-8080}:8080"
+    restart: unless-stopped
+
+volumes:
+  db_data:

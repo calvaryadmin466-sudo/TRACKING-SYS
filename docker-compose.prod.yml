@@ -1,0 +1,59 @@
+# Production overlay. Use together with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# It hardens the stack: no host-published database/redis/API ports (the API is
+# reached only through the Caddy reverse proxy with TLS), production app settings,
+# log rotation, and restart policies. Device ports (7808/7078) stay published so
+# terminals can connect.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  db:
+    ports: []            # internal only
+    logging: *logging
+    restart: unless-stopped
+
+  redis:
+    ports: []            # internal only
+    logging: *logging
+    restart: unless-stopped
+
+  ingestion:
+    logging: *logging
+    restart: unless-stopped
+
+  api:
+    environment:
+      APP_ENV: production
+      DEMO_FEED: "false"
+      SECURITY_HEADERS: "true"
+    ports: []            # not published; the proxy reaches it over the network
+    expose:
+      - "8080"
+    logging: *logging
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.8-alpine
+    depends_on:
+      - api
+    environment:
+      DOMAIN: "${DOMAIN:-localhost}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging: *logging
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
