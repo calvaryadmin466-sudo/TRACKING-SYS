@@ -299,6 +299,25 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .status-strip .sc.warn .n { color: var(--amber); }
 .status-strip .sc.bad .n { color: var(--red); }
 
+/* ---------- Board: donut + ranking bars ---------- */
+.donut-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.donut-svg { flex: none; }
+.donut-num { fill: var(--text); font-size: 26px; font-weight: 700; }
+.donut-lbl { fill: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+.donut-legend { flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 9px; }
+.dl-row { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+.dl-dot { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+.dl-label { color: var(--text-muted); }
+.dl-val { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rank { display: flex; flex-direction: column; gap: 13px; }
+.rank-row { display: flex; flex-direction: column; gap: 5px; }
+.rank-head { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
+.rank-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.rank-val { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rank-u { font-size: 11px; font-weight: 500; color: var(--text-dim); margin-left: 2px; }
+.rank-track { height: 7px; background: var(--panel-2); border-radius: var(--r-full); overflow: hidden; }
+.rank-fill { height: 100%; border-radius: var(--r-full); min-width: 4px; transition: width .4s ease; }
+
 /* ---------- Login ---------- */
 .login { height: 100%; display: grid; place-items: center; background:
   radial-gradient(1200px 500px at 70% -10%, rgba(50,130,246,.14), transparent), var(--bg); padding: 16px; }
