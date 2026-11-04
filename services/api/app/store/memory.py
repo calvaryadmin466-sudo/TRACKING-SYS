@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from .base import (
-    AuditEntry, CameraChannel, DevicePatch, DeviceStatus, Event, Geofence, LivePosition,
+    AuditEntry, CameraChannel, DevicePatch, DeviceStatus, Driver, Event, Geofence, LivePosition,
     MaintenanceItem, NotificationLogEntry, NotificationRule, Organization, Position,
     RawPacketView, Role, Store, Trip, User, Vehicle, VideoSession,
 )
@@ -42,10 +42,11 @@ class MemoryStore(Store):
         self._maintenance: dict[int, MaintenanceItem] = {}
         self._rules: dict[int, NotificationRule] = {}
         self._notifications: list[NotificationLogEntry] = []
+        self._drivers: dict[int, Driver] = {}
         self._roles = {name: i + 1 for i, name in enumerate(DEFAULT_ROLES)}
         self._seq = {"user": 0, "org": 0, "vehicle": 0, "device": 0,
                      "event": 0, "geofence": 0, "trip": 0, "video": 0,
-                     "maint": 0, "rule": 0, "notif": 0}
+                     "maint": 0, "rule": 0, "notif": 0, "driver": 0}
 
     def _next(self, key: str) -> int:
         self._seq[key] += 1
@@ -483,6 +484,54 @@ class MemoryStore(Store):
                 if limit and len(out) >= limit:
                     break
             return out
+
+    # --- Driver management ---
+    def _assigned_vehicle(self, driver_id: int) -> str:
+        for v in self._vehicles.values():
+            if v.driver_id == driver_id:
+                return v.registration
+        return ""
+
+    async def create_driver(self, d: Driver) -> int:
+        async with self._lock:
+            self._seq["driver"] += 1
+            d.id = self._seq["driver"]
+            d.created_at = d.created_at or _utcnow()
+            self._drivers[d.id] = d
+            return d.id
+
+    async def list_drivers(self, org_id: Optional[int]) -> list[Driver]:
+        async with self._lock:
+            out = []
+            for d in self._drivers.values():
+                if org_id is not None and d.organization_id != org_id:
+                    continue
+                d.assigned_vehicle = self._assigned_vehicle(d.id)
+                out.append(d)
+            return sorted(out, key=lambda x: x.id)
+
+    async def get_driver(self, driver_id: int) -> Optional[Driver]:
+        async with self._lock:
+            d = self._drivers.get(driver_id)
+            if d:
+                d.assigned_vehicle = self._assigned_vehicle(d.id)
+            return d
+
+    async def update_driver(self, d: Driver) -> None:
+        async with self._lock:
+            existing = self._drivers.get(d.id)
+            if existing:
+                d.created_at = existing.created_at
+                if d.organization_id is None:
+                    d.organization_id = existing.organization_id
+                self._drivers[d.id] = d
+
+    async def delete_driver(self, driver_id: int) -> None:
+        async with self._lock:
+            self._drivers.pop(driver_id, None)
+            for v in self._vehicles.values():
+                if v.driver_id == driver_id:
+                    v.driver_id = None
 
     # --- memory-only helpers (used by the labelled demo feed) ---
     async def inject_device(self, reporting_id: str, *, serial: str = "", model: str = "",

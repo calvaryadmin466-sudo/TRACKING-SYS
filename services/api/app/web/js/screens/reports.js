@@ -35,12 +35,13 @@ export async function render(root) {
     const avg = qs("#ds-avg"); if (avg) avg.textContent = `fleet average: ${data.fleet_average}`;
     if (!el) return;
     el.innerHTML = data.drivers.length ? `<table class="tbl"><thead><tr>
-      <th>Vehicle</th><th>Reporting ID</th><th>Score</th><th class="num">Overspeed</th>
+      <th>Vehicle</th><th>Driver</th><th>Reporting ID</th><th>Score</th><th class="num">Overspeed</th>
       <th class="num">Harsh brake</th><th class="num">Harsh accel</th><th class="num">Idling</th>
       <th class="num">Alarms</th></tr></thead><tbody>
       ${data.drivers.map((r) => { const e = r.events || {};
         const alarms = Object.entries(e).filter(([k]) => k.startsWith("alarm_")).reduce((a, [, v]) => a + v, 0);
         return `<tr><td>${esc(r.vehicle || "—")} ${r.simulated ? "<span class='badge sim'>SIM</span>" : ""}</td>
+          <td>${esc(r.driver_name || r.driver || "—")}</td>
           <td class="mono">${esc(r.reporting_id)}</td><td>${scoreBadge(r.score, r.grade)}</td>
           <td class="num">${e.overspeed || 0}</td><td class="num">${e.harsh_braking || 0}</td>
           <td class="num">${e.harsh_acceleration || 0}</td><td class="num">${e.idling || 0}</td>

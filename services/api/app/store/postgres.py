@@ -10,7 +10,7 @@ from typing import Optional
 import asyncpg
 
 from .base import (
-    AuditEntry, CameraChannel, DevicePatch, DeviceStatus, Event, Geofence, LivePosition,
+    AuditEntry, CameraChannel, DevicePatch, DeviceStatus, Driver, Event, Geofence, LivePosition,
     MaintenanceItem, NotificationLogEntry, NotificationRule, Organization, Position,
     RawPacketView, Role, Store, Trip, User, Vehicle, VideoSession,
 )
@@ -128,30 +128,30 @@ class PostgresStore(Store):
     # --- vehicles ---
     async def list_vehicles(self, org_id: Optional[int]) -> list[Vehicle]:
         rows = await self.pool.fetch("""
-            SELECT id, organization_id, fleet_id, registration, vehicle_type, driver_name, created_at
+            SELECT id, organization_id, fleet_id, registration, vehicle_type, driver_name, created_at, driver_id
             FROM vehicles WHERE ($1::bigint IS NULL OR organization_id=$1) ORDER BY id""", org_id)
         return [Vehicle(id=r[0], organization_id=r[1], fleet_id=r[2], registration=r[3],
-                        vehicle_type=r[4], driver_name=r[5], created_at=r[6]) for r in rows]
+                        vehicle_type=r[4], driver_name=r[5], created_at=r[6], driver_id=r[7]) for r in rows]
 
     async def get_vehicle(self, vehicle_id: int) -> Optional[Vehicle]:
         r = await self.pool.fetchrow("""
-            SELECT id, organization_id, fleet_id, registration, vehicle_type, driver_name, created_at
+            SELECT id, organization_id, fleet_id, registration, vehicle_type, driver_name, created_at, driver_id
             FROM vehicles WHERE id=$1""", vehicle_id)
         if not r:
             return None
         return Vehicle(id=r[0], organization_id=r[1], fleet_id=r[2], registration=r[3],
-                       vehicle_type=r[4], driver_name=r[5], created_at=r[6])
+                       vehicle_type=r[4], driver_name=r[5], created_at=r[6], driver_id=r[7])
 
     async def create_vehicle(self, v: Vehicle) -> int:
         return await self.pool.fetchval("""
-            INSERT INTO vehicles (organization_id, fleet_id, registration, vehicle_type, driver_name)
-            VALUES ($1,$2,$3,$4,$5) RETURNING id""",
-            v.organization_id, v.fleet_id, v.registration, v.vehicle_type, v.driver_name)
+            INSERT INTO vehicles (organization_id, fleet_id, registration, vehicle_type, driver_name, driver_id)
+            VALUES ($1,$2,$3,$4,$5,$6) RETURNING id""",
+            v.organization_id, v.fleet_id, v.registration, v.vehicle_type, v.driver_name, v.driver_id)
 
     async def update_vehicle(self, v: Vehicle) -> None:
         await self.pool.execute("""
-            UPDATE vehicles SET registration=$2, vehicle_type=$3, driver_name=$4, fleet_id=$5
-            WHERE id=$1""", v.id, v.registration, v.vehicle_type, v.driver_name, v.fleet_id)
+            UPDATE vehicles SET registration=$2, vehicle_type=$3, driver_name=$4, fleet_id=$5, driver_id=$6
+            WHERE id=$1""", v.id, v.registration, v.vehicle_type, v.driver_name, v.fleet_id, v.driver_id)
 
     # --- positions ---
     async def list_positions(self, device_id, frm, to, limit) -> list[Position]:
@@ -388,6 +388,55 @@ class PostgresStore(Store):
         return [NotificationLogEntry(id=r[0], rule_id=r[1], event_id=r[2], event_type=r[3],
                                      channel=r[4], target=r[5], status=r[6], detail=r[7], at=r[8])
                 for r in rows]
+
+    # --- Driver management ---
+    @staticmethod
+    def _driver_from_row(r) -> Driver:
+        return Driver(
+            id=r[0], organization_id=r[1], name=r[2], license_number=r[3],
+            license_class=r[4], phone=r[5], employee_id=r[6], license_expiry=r[7],
+            status=r[8], notes=r[9], created_at=r[10], assigned_vehicle=r[11] or ""
+        )
+
+    async def create_driver(self, d: Driver) -> int:
+        return await self.pool.fetchval("""
+            INSERT INTO drivers
+                (organization_id, name, license_number, license_class, phone, employee_id, license_expiry, status, notes)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id""",
+            d.organization_id, d.name, d.license_number, d.license_class, d.phone,
+            d.employee_id, d.license_expiry, d.status, d.notes)
+
+    async def list_drivers(self, org_id: Optional[int]) -> list[Driver]:
+        rows = await self.pool.fetch("""
+            SELECT dr.id, dr.organization_id, dr.name, dr.license_number, dr.license_class,
+                   dr.phone, dr.employee_id, dr.license_expiry, dr.status, dr.notes, dr.created_at,
+                   COALESCE(v.registration, '') AS assigned_vehicle
+            FROM drivers dr
+            LEFT JOIN vehicles v ON v.driver_id = dr.id
+            WHERE ($1::bigint IS NULL OR dr.organization_id=$1)
+            ORDER BY dr.id""", org_id)
+        return [self._driver_from_row(r) for r in rows]
+
+    async def get_driver(self, driver_id: int) -> Optional[Driver]:
+        r = await self.pool.fetchrow("""
+            SELECT dr.id, dr.organization_id, dr.name, dr.license_number, dr.license_class,
+                   dr.phone, dr.employee_id, dr.license_expiry, dr.status, dr.notes, dr.created_at,
+                   COALESCE(v.registration, '') AS assigned_vehicle
+            FROM drivers dr
+            LEFT JOIN vehicles v ON v.driver_id = dr.id
+            WHERE dr.id=$1""", driver_id)
+        return self._driver_from_row(r) if r else None
+
+    async def update_driver(self, d: Driver) -> None:
+        await self.pool.execute("""
+            UPDATE drivers SET name=$2, license_number=$3, license_class=$4, phone=$5,
+                employee_id=$6, license_expiry=$7, status=$8, notes=$9
+            WHERE id=$1""",
+            d.id, d.name, d.license_number, d.license_class, d.phone,
+            d.employee_id, d.license_expiry, d.status, d.notes)
+
+    async def delete_driver(self, driver_id: int) -> None:
+        await self.pool.execute("DELETE FROM drivers WHERE id=$1", driver_id)
 
     async def create_geofence(self, g: Geofence) -> int:
         ring = list(g.ring)

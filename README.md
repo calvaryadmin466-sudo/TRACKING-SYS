@@ -125,7 +125,8 @@ served as static files by the API. Screens: **Fleet Overview**, **Live Tracking*
 WebSocket with auto-reconnect and stale detection), **Vehicle Details**,
 **Device Management** (incl. authorized raw-packet diagnostics), **Trips &
 Playback**, **Alerts & Events** (acknowledge / resolve), **Geofences** (draw /
-delete on a map), **Reports & Analytics** (per-vehicle metrics, scorecard, trips report + CSV export),
+delete on a map), **Reports & Analytics** (per-vehicle metrics, scorecard with driver attribution, trips report + CSV export),
+**Drivers** (license expiry tracking, driver profile CRUD, vehicle assignment),
 **Maintenance** (service reminders with real date & odometer due states), **Video Monitoring**
 (JT/T 1078 control + live gateway stream stats — no fabricated footage),
 **Notifications** (rule builder, webhook/email dispatch, delivery log),
@@ -173,6 +174,12 @@ real webhook dispatch, and delivery logging. Endpoints:
 `PUT /api/notifications/rules/{id}`, `DELETE /api/notifications/rules/{id}`,
 `POST /api/notifications/rules/{id}/test`, `GET /api/notifications/log`,
 `GET /api/reports/trips`, `GET /api/reports/trips.csv`.
+
+**Driver Management** adds drivers as first-class entities with license-expiry tracking
+(expired / expiring soon within 30 days / ok), vehicle assignment, and driver-attributed
+behaviour scorecards. Endpoints:
+`GET/POST /api/drivers`, `PUT /api/drivers/{id}`, `DELETE /api/drivers/{id}`,
+`POST /api/drivers/{id}/assign`.
 
 ## Production deployment (Stage 5)
 

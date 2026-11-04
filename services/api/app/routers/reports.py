@@ -124,6 +124,15 @@ async def driver_scores(frm: Optional[str] = Query(default=None, alias="from"),
                         store: Store = Depends(get_store)):
     frm_dt, to_dt = _parse(frm), _parse(to)
     devices = await store.list_devices(principal.org_scope())
+    vehicles = await store.list_vehicles(principal.org_scope())
+    drivers = await store.list_drivers(principal.org_scope())
+    driver_map = {dr.id: dr.name for dr in drivers}
+    veh_driver = {}
+    for v in vehicles:
+        if v.driver_id and v.driver_id in driver_map:
+            veh_driver[v.id] = driver_map[v.driver_id]
+        elif v.driver_name:
+            veh_driver[v.id] = v.driver_name
     rows = []
     for d in devices:
         events = await store.list_events(principal.org_scope(), d.id, frm_dt, None, 5000)
@@ -139,9 +148,11 @@ async def driver_scores(frm: Optional[str] = Query(default=None, alias="from"),
                 counts[e.type] = counts.get(e.type, 0) + 1
                 demerits += w
         score = max(0, 100 - demerits)
+        d_name = veh_driver.get(d.vehicle_id, "")
         rows.append({
             "device_id": d.id, "reporting_id": d.reporting_id,
             "vehicle": d.vehicle_registration or d.plate or "", "simulated": d.simulated,
+            "driver_name": d_name, "driver": d_name,
             "score": score, "grade": _grade(score), "events": counts,
             "total_incidents": sum(counts.values()),
         })

@@ -18,7 +18,7 @@ from .engine_runner import run_engine
 from .live import router as live_router
 from .notification_runner import run_notifications
 from .routers import (
-    admin, auth, devices, events, geofences, health, maintenance, notifications, positions,
+    admin, auth, devices, drivers, events, geofences, health, maintenance, notifications, positions,
     reports, trips, vehicles, video,
 )
 from .security import hash_password
@@ -119,6 +119,7 @@ def create_app() -> FastAPI:
     app.include_router(devices.router)
     app.include_router(positions.router)
     app.include_router(vehicles.router)
+    app.include_router(drivers.router)
     app.include_router(geofences.router)
     app.include_router(events.router)
     app.include_router(trips.router)

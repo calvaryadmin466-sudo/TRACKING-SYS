@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 
@@ -37,6 +37,24 @@ class Vehicle:
     organization_id: Optional[int] = None
     fleet_id: Optional[int] = None
     created_at: Optional[datetime] = None
+    driver_id: Optional[int] = None
+
+
+@dataclass
+class Driver:
+    id: int
+    organization_id: Optional[int]
+    name: str
+    license_number: str = ""
+    license_class: str = ""
+    phone: str = ""
+    employee_id: str = ""
+    license_expiry: Optional[date] = None
+    status: str = "active"
+    notes: str = ""
+    created_at: Optional[datetime] = None
+    # computed / display field (populated from vehicle assignment)
+    assigned_vehicle: str = ""
 
 
 @dataclass
@@ -438,3 +456,19 @@ class Store(abc.ABC):
 
     @abc.abstractmethod
     async def list_notifications(self, org_id: Optional[int], limit: int) -> list[NotificationLogEntry]: ...
+
+    # --- Driver management ---
+    @abc.abstractmethod
+    async def create_driver(self, d: Driver) -> int: ...
+
+    @abc.abstractmethod
+    async def list_drivers(self, org_id: Optional[int]) -> list[Driver]: ...
+
+    @abc.abstractmethod
+    async def get_driver(self, driver_id: int) -> Optional[Driver]: ...
+
+    @abc.abstractmethod
+    async def update_driver(self, d: Driver) -> None: ...
+
+    @abc.abstractmethod
+    async def delete_driver(self, driver_id: int) -> None: ...

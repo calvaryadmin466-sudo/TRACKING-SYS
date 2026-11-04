@@ -33,9 +33,27 @@ export async function render(root, ctx) {
     <div class="card section-gap"><div class="card-head">${icon("cctv")}<h3>Camera channels</h3></div><div class="card-pad" id="v-cams"></div></div>`;
   refreshIcons(root);
 
+  let driverName = "—";
+  if (d.vehicle_id) {
+    try {
+      const vdata = await get("/api/vehicles");
+      const veh = (vdata.vehicles || []).find((x) => x.id === d.vehicle_id);
+      if (veh) {
+        if (veh.driver_name) driverName = veh.driver_name;
+        if (veh.driver_id) {
+          const drData = await get("/api/drivers");
+          const dr = (drData.drivers || []).find((x) => x.id === veh.driver_id);
+          if (dr) driverName = dr.name;
+        }
+      }
+    } catch {}
+  }
+  if (!qs("#v-identity")) return;
+
   const kv = (k, v) => `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`;
   qs("#v-identity").innerHTML =
     kv("Registration", esc(d.vehicle_registration || d.plate || "—")) +
+    kv("Assigned driver", esc(driverName)) +
     kv("Model", esc(d.model || "—")) + kv("Manufacturer", esc(d.manufacturer || "—")) +
     kv("Reporting ID", `<span class="mono">${esc(d.reporting_id)}</span>`) +
     kv("Hardware serial", `<span class="mono">${esc(d.serial_number || "—")}</span>`) +

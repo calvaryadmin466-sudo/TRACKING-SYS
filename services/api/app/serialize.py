@@ -2,12 +2,12 @@
 (online vs offline, fresh vs stale GPS) from configurable thresholds."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from .config import Settings
 from .store.base import (
-    CameraChannel, DeviceStatus, Event, Geofence, LivePosition, Position, Trip, Vehicle,
+    CameraChannel, DeviceStatus, Driver, Event, Geofence, LivePosition, Position, Trip, Vehicle,
     VideoSession,
 )
 
@@ -77,7 +77,39 @@ def vehicle_to_dict(v: Vehicle) -> dict:
         "registration": v.registration,
         "vehicle_type": v.vehicle_type,
         "driver_name": v.driver_name,
+        "driver_id": v.driver_id,
         "created_at": _iso(v.created_at),
+    }
+
+
+def driver_to_dict(d: Driver, today: Optional[date] = None) -> dict:
+    today = today or date.today()
+    state = "ok"
+    days_left = None
+    if d.license_expiry:
+        exp = d.license_expiry.date() if isinstance(d.license_expiry, datetime) else d.license_expiry
+        days_left = (exp - today).days
+        if days_left < 0:
+            state = "expired"
+        elif days_left <= 30:
+            state = "expiring_soon"
+        else:
+            state = "ok"
+    return {
+        "id": d.id,
+        "organization_id": d.organization_id,
+        "name": d.name,
+        "license_number": d.license_number,
+        "license_class": d.license_class,
+        "phone": d.phone,
+        "employee_id": d.employee_id,
+        "license_expiry": d.license_expiry.isoformat() if d.license_expiry else None,
+        "license_state": state,
+        "days_left": days_left,
+        "status": d.status,
+        "notes": d.notes,
+        "assigned_vehicle": d.assigned_vehicle or "",
+        "created_at": _iso(d.created_at),
     }
 
 

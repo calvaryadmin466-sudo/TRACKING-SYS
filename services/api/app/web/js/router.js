@@ -17,6 +17,7 @@ import * as audit from "./screens/audit.js";
 import * as settings from "./screens/settings.js";
 import * as maintenance from "./screens/maintenance.js";
 import * as notifications from "./screens/notifications.js";
+import * as drivers from "./screens/drivers.js";
 
 const ADMIN = ["super_admin", "company_admin"];
 
@@ -26,6 +27,7 @@ const ROUTES = [
   { path: "/trips",     title: "Trips & Playback", icon: "route",          group: "Operations", nav: true,  mod: trips },
   { path: "/alerts",    title: "Alerts & Events", icon: "bell",            group: "Operations", nav: true,  mod: alerts },
   { path: "/devices",   title: "Device Management", icon: "cpu",           group: "Fleet",      nav: true,  mod: devices },
+  { path: "/drivers",   title: "Drivers",           icon: "id-card",       group: "Fleet",      nav: true,  mod: drivers },
   { path: "/geofences", title: "Geofences",      icon: "hexagon",          group: "Fleet",      nav: true,  mod: geofences, flush: true },
   { path: "/video",     title: "Video Monitoring", icon: "video",          group: "Fleet",      nav: true,  mod: video },
   { path: "/maintenance", title: "Maintenance", icon: "wrench", group: "Fleet", nav: true, mod: maintenance },
