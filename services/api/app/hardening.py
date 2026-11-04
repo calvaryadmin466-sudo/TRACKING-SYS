@@ -30,6 +30,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         resp.headers.setdefault("Referrer-Policy", "no-referrer")
         resp.headers.setdefault("Content-Security-Policy", _CSP)
         resp.headers.setdefault("Permissions-Policy", "geolocation=(), camera=(), microphone=()")
+        # The dashboard is a build-free ES-module SPA: module imports carry no
+        # cache-busting query, so without an explicit policy browsers heuristically
+        # cache a module by its URL and never see new code. "no-cache" keeps the
+        # cached copy but forces revalidation on every load, so StaticFiles returns
+        # a cheap 304 when unchanged and fresh code immediately after a deploy.
+        if not request.url.path.startswith("/api"):
+            resp.headers.setdefault("Cache-Control", "no-cache")
         return resp
 
 

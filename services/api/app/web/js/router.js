@@ -1,4 +1,7 @@
-// Hash router + application shell (sidebar nav, topbar, auth gate).
+// Hash router + application shell.
+// App-like navigation: a left sidebar on desktop (primary tabs + tool groups)
+// and a bottom tab bar on phones (Monitor / Board / Service / Alarm / Mine),
+// mirroring the fleet-app structure the operators already know.
 import { clearToken, get } from "./api.js";
 import { session, live } from "./store.js";
 import { icon, refreshIcons, qs, qsa, initials, toast } from "./ui.js";
@@ -18,29 +21,60 @@ import * as settings from "./screens/settings.js";
 import * as maintenance from "./screens/maintenance.js";
 import * as notifications from "./screens/notifications.js";
 import * as drivers from "./screens/drivers.js";
+import * as service from "./screens/service.js";
+import * as mine from "./screens/mine.js";
 
 const ADMIN = ["super_admin", "company_admin"];
+const MGR = ["super_admin", "company_admin", "fleet_manager"];
 
+// Five primary tabs — the top-level navigation shared by the desktop sidebar
+// and the mobile bottom bar.
+const TABS = [
+  { tab: "monitor", path: "/tracking", title: "Monitor", icon: "map-pin" },
+  { tab: "board",   path: "/",         title: "Board",   icon: "layout-dashboard" },
+  { tab: "service", path: "/service",  title: "Service", icon: "grid" },
+  { tab: "alarm",   path: "/alerts",   title: "Alarm",   icon: "bell" },
+  { tab: "mine",    path: "/mine",     title: "Mine",    icon: "user" },
+];
+
+// Every route carries the primary `tab` it belongs to (drives active state in
+// both navs). `tool` marks a route that also appears in the Service hub and the
+// desktop sidebar's tool section, grouped by the tool label.
 const ROUTES = [
-  { path: "/",          title: "Fleet Overview", icon: "layout-dashboard", group: "Operations", nav: true,  mod: overview },
-  { path: "/tracking",  title: "Live Tracking",  icon: "map-pin",          group: "Operations", nav: true,  mod: tracking, flush: true },
-  { path: "/trips",     title: "Trips & Playback", icon: "route",          group: "Operations", nav: true,  mod: trips },
-  { path: "/alerts",    title: "Alerts & Events", icon: "bell",            group: "Operations", nav: true,  mod: alerts },
-  { path: "/devices",   title: "Device Management", icon: "cpu",           group: "Fleet",      nav: true,  mod: devices },
-  { path: "/drivers",   title: "Drivers",           icon: "id-card",       group: "Fleet",      nav: true,  mod: drivers },
-  { path: "/geofences", title: "Geofences",      icon: "hexagon",          group: "Fleet",      nav: true,  mod: geofences, flush: true },
-  { path: "/video",     title: "Video Monitoring", icon: "video",          group: "Fleet",      nav: true,  mod: video },
-  { path: "/maintenance", title: "Maintenance", icon: "wrench", group: "Fleet", nav: true, mod: maintenance },
-  { path: "/reports",   title: "Reports & Analytics", icon: "bar-chart-3", group: "Analytics",  nav: true,  mod: reports },
-  { path: "/admin/users", title: "Users & Roles", icon: "users",          group: "Administration", nav: true, roles: ADMIN, mod: admin },
-  { path: "/audit",     title: "Audit Log",      icon: "scroll-text",      group: "Administration", nav: true, roles: ADMIN, mod: audit },
-  { path: "/notifications", title: "Notifications", icon: "bell", group: "Administration", nav: true, roles: ["super_admin", "company_admin", "fleet_manager"], mod: notifications },
-  { path: "/settings",  title: "Settings",       icon: "settings",         group: "Administration", nav: true, mod: settings },
-  { path: "/vehicle/:id", title: "Vehicle Details", icon: "truck",         nav: false, mod: vehicle },
+  { path: "/",             title: "Board",               icon: "layout-dashboard", tab: "board",   mod: overview },
+  { path: "/tracking",     title: "Live Monitor",        icon: "map-pin",          tab: "monitor", flush: true, mod: tracking },
+  { path: "/service",      title: "Service",             icon: "grid",             tab: "service", mod: service },
+  { path: "/alerts",       title: "Alarms & Events",     icon: "bell",             tab: "alarm",   mod: alerts },
+  { path: "/mine",         title: "My Account",          icon: "user",             tab: "mine",    mod: mine },
+
+  { path: "/trips",        title: "Trips & Playback",    icon: "route",            tab: "service", tool: "Operations", mod: trips },
+  { path: "/video",        title: "Video Monitoring",    icon: "video",            tab: "service", tool: "Operations", mod: video },
+  { path: "/devices",      title: "Device Management",   icon: "cpu",              tab: "service", tool: "Fleet",      mod: devices },
+  { path: "/drivers",      title: "Drivers",             icon: "id-card",          tab: "service", tool: "Fleet",      mod: drivers },
+  { path: "/geofences",    title: "Geofences",           icon: "hexagon",          tab: "service", tool: "Fleet",      flush: true, mod: geofences },
+  { path: "/maintenance",  title: "Maintenance",         icon: "wrench",           tab: "service", tool: "Fleet",      mod: maintenance },
+  { path: "/reports",      title: "Reports & Analytics", icon: "bar-chart-3",      tab: "service", tool: "Analytics",  mod: reports },
+  { path: "/admin/users",  title: "Users & Roles",       icon: "users",            tab: "service", tool: "Management", roles: ADMIN, mod: admin },
+  { path: "/notifications",title: "Notification Rules",  icon: "bell-ring",        tab: "service", tool: "Management", roles: MGR,   mod: notifications },
+  { path: "/audit",        title: "Audit Log",           icon: "scroll-text",      tab: "service", tool: "Management", roles: ADMIN, mod: audit },
+  { path: "/settings",     title: "Settings",            icon: "settings",         tab: "mine",    mod: settings },
+
+  { path: "/vehicle/:id",  title: "Vehicle Details",     icon: "truck",            tab: "monitor", mod: vehicle },
 ];
 
 let currentCleanup = null;
 let navPollTimer = null;
+
+// Exposed to the Service hub (and reused for the desktop tool list). Returns the
+// role-visible tool routes grouped by their `tool` label, preserving order.
+export function serviceToolGroups(user) {
+  const canSee = (r) => !r.roles || r.roles.includes(user.role);
+  const groups = {};
+  for (const r of ROUTES) {
+    if (r.tab === "service" && r.tool && canSee(r)) (groups[r.tool] ||= []).push(r);
+  }
+  return groups;
+}
 
 function match(hash) {
   const path = (hash || "#/").replace(/^#/, "") || "/";
@@ -58,15 +92,24 @@ function match(hash) {
   return { route: ROUTES[0], params: {} };
 }
 
-function shellHtml(user) {
-  const canSee = (r) => r.nav && (!r.roles || r.roles.includes(user.role));
-  const groups = {};
-  for (const r of ROUTES.filter(canSee)) (groups[r.group] ||= []).push(r);
-  const navHtml = Object.entries(groups).map(([g, items]) => `
+function primaryNavHtml() {
+  return TABS.map((t) => `
+    <a href="#${t.path}" class="nav-item" data-tab="${t.tab}">
+      <span class="ni-ic">${icon(t.icon)}</span><span class="ni-lbl">${t.title}</span>
+      ${t.tab === "alarm" ? `<span class="count nav-alert-count hidden">0</span>` : ""}
+    </a>`).join("");
+}
+
+function toolNavHtml(user) {
+  const groups = serviceToolGroups(user);
+  return Object.entries(groups).map(([g, items]) => `
     <div class="group">${g}</div>
-    ${items.map((r) => `<a href="#${r.path}" data-path="${r.path}">${icon(r.icon)} <span>${r.title}</span>
-      ${r.path === "/alerts" ? `<span class="count hidden" id="nav-alert-count">0</span>` : ""}</a>`).join("")}
+    ${items.map((r) => `<a href="#${r.path}" class="nav-link" data-path="${r.path}">${icon(r.icon)}<span>${r.title}</span></a>`).join("")}
   `).join("");
+}
+
+function shellHtml(user) {
+  const primary = primaryNavHtml();
   return `
   <div class="app">
     <aside class="sidebar" id="sidebar">
@@ -74,23 +117,26 @@ function shellHtml(user) {
         <div class="logo">${icon("navigation")}</div>
         <div><b>FleetTrack</b><small>GPS &amp; Video</small></div>
       </div>
-      <nav class="nav">${navHtml}</nav>
+      <nav class="nav">
+        <div class="nav-primary">${primary}</div>
+        <div class="nav-tools">${toolNavHtml(user)}</div>
+      </nav>
     </aside>
-    <div class="scrim hidden" id="scrim"></div>
     <div class="main">
       <header class="topbar">
-        <button class="btn ghost icon hamburger" id="hamburger">${icon("menu")}</button>
-        <div><div class="page-title" id="page-title">—</div></div>
+        <div class="tb-brand"><div class="logo">${icon("navigation")}</div><b>FleetTrack</b></div>
+        <div class="page-title" id="page-title">—</div>
         <div class="grow"></div>
-        <div class="conn" id="conn"><span class="dot"></span><span id="conn-text">connecting…</span></div>
+        <div class="conn" id="conn"><span class="dot"></span><span id="conn-text" class="hide-xs">connecting…</span></div>
         <div class="usermenu">
           <div class="avatar">${initials(user.email)}</div>
           <div class="hide-sm"><div style="font-size:13px;font-weight:600">${user.email}</div>
             <div class="dim" style="font-size:11px">${user.role}</div></div>
-          <button class="btn ghost icon" id="logout" title="Sign out">${icon("log-out")}</button>
+          <button class="btn ghost icon hide-sm" id="logout" title="Sign out">${icon("log-out")}</button>
         </div>
       </header>
       <main class="content" id="content"></main>
+      <nav class="bottom-nav">${primary}</nav>
     </div>
   </div>`;
 }
@@ -106,18 +152,19 @@ async function pollAlertCount() {
   try {
     const data = await get("/api/events?acknowledged=false&limit=1");
     const n = data.open_alarms || 0;
-    const badge = qs("#nav-alert-count");
-    if (badge) { badge.textContent = n; badge.classList.toggle("hidden", n === 0); }
+    qsa(".nav-alert-count").forEach((b) => { b.textContent = n; b.classList.toggle("hidden", n === 0); });
   } catch {}
+}
+
+function signOut() {
+  live.close(); clearToken(); session.user = null; location.hash = "#/login"; location.reload();
 }
 
 export function mountShell() {
   const root = qs("#app-root");
   root.innerHTML = shellHtml(session.user);
   refreshIcons(root);
-  qs("#logout").addEventListener("click", () => { live.close(); clearToken(); session.user = null; location.hash = "#/login"; location.reload(); });
-  qs("#hamburger").addEventListener("click", () => { qs("#sidebar").classList.toggle("open"); qs("#scrim").classList.toggle("hidden"); });
-  qs("#scrim").addEventListener("click", () => { qs("#sidebar").classList.remove("open"); qs("#scrim").classList.add("hidden"); });
+  qs("#logout").addEventListener("click", signOut);
   live.subscribe(({ connState }) => setConn(connState));
   setConn(live.connState);
   live.connect();
@@ -126,15 +173,18 @@ export function mountShell() {
   route();
 }
 
+// Exposed so screens (e.g. Mine) can trigger sign-out.
+export { signOut };
+
 async function route() {
   if (!session.user) return;
   const { route: r, params } = match(location.hash);
-  qsa(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.path === r.path ||
-    (r.path.startsWith("/vehicle") && a.dataset.path === "/devices")));
+  qsa(".nav-item").forEach((a) => a.classList.toggle("active", a.dataset.tab === r.tab));
+  qsa(".nav-link").forEach((a) => a.classList.toggle("active", a.dataset.path === r.path));
   qs("#page-title").textContent = r.title;
-  qs("#sidebar").classList.remove("open"); qs("#scrim").classList.add("hidden");
   const content = qs("#content");
   content.className = "content" + (r.flush ? " flush" : "");
+  content.scrollTop = 0;
   if (currentCleanup) { try { currentCleanup(); } catch {} currentCleanup = null; }
   content.innerHTML = `<div class="state"><div class="spinner"></div></div>`;
   try {

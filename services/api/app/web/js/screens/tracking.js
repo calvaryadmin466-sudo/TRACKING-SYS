@@ -7,6 +7,16 @@ import {
 
 const FILTERS = ["online", "offline", "moving", "idle", "stale", "simulated"];
 
+// Live fleet-status summary shown over the map; each cell is a quick filter.
+const STATS = [
+  { f: "",        cls: "pri",  label: "Total" },
+  { f: "online",  cls: "ok",   label: "Online" },
+  { f: "moving",  cls: "pri",  label: "Moving" },
+  { f: "idle",    cls: "",     label: "Idle" },
+  { f: "offline", cls: "bad",  label: "Offline" },
+  { f: "stale",   cls: "warn", label: "Stale" },
+];
+
 export async function render(root, ctx) {
   root.innerHTML = `
     <div class="map-layout">
@@ -21,6 +31,7 @@ export async function render(root, ctx) {
       </div>
       <div class="map-wrap">
         <div class="mapel" id="map"></div>
+        <div class="map-overlay status-top"><div class="status-strip" id="status-strip"></div></div>
         <div class="map-overlay map-tools">
           <button class="btn icon" id="btn-collapse" title="Toggle list">${icon("panel-left")}</button>
           <button class="btn icon" id="btn-fit" title="Fit all vehicles">${icon("maximize")}</button>
@@ -141,7 +152,40 @@ export async function render(root, ctx) {
     if (pan && d && d.position) map.setView([d.position.latitude, d.position.longitude], Math.max(map.getZoom(), 15));
   }
 
-  function refresh() { const devices = live.list(); renderMarkers(devices); renderList(devices); renderDetail(); }
+  function countStatuses(devices) {
+    const c = { "": devices.length, online: 0, moving: 0, idle: 0, offline: 0, stale: 0 };
+    for (const d of devices) {
+      const st = deviceStatus(d);
+      if (st === "online") { c.online++; if (isMoving(d)) c.moving++; else c.idle++; }
+      else if (st === "offline") c.offline++;
+      if (d.has_position && d.position && !d.position.fresh) c.stale++;
+    }
+    return c;
+  }
+
+  function syncChips() {
+    qsa(".chip-toggle", root).forEach((c) => c.classList.toggle("on", state.filters.has(c.dataset.f)));
+  }
+
+  function renderStrip(devices) {
+    const el = qs("#status-strip");
+    if (!el) return;
+    const c = countStatuses(devices);
+    el.innerHTML = STATS.map((s) => `<div class="sc ${s.cls} ${s.f && state.filters.has(s.f) ? "on" : ""}" data-f="${s.f}">
+      <span class="n">${c[s.f]}</span><span class="l">${s.label}</span></div>`).join("");
+    qsa(".sc", el).forEach((sc) => sc.addEventListener("click", () => {
+      const f = sc.dataset.f;
+      if (!f) state.filters.clear();
+      else if (state.filters.has(f)) state.filters.delete(f);
+      else state.filters.add(f);
+      syncChips(); refresh();
+    }));
+  }
+
+  function refresh() {
+    const devices = live.list();
+    renderStrip(devices); renderMarkers(devices); renderList(devices); renderDetail();
+  }
 
   // Wire controls
   qs("#veh-search").addEventListener("input", (e) => { state.search = e.target.value; refresh(); });
