@@ -125,8 +125,10 @@ served as static files by the API. Screens: **Fleet Overview**, **Live Tracking*
 WebSocket with auto-reconnect and stale detection), **Vehicle Details**,
 **Device Management** (incl. authorized raw-packet diagnostics), **Trips &
 Playback**, **Alerts & Events** (acknowledge / resolve), **Geofences** (draw /
-delete on a map), **Reports & Analytics** (+ CSV export), **Video Monitoring**
+delete on a map), **Reports & Analytics** (per-vehicle metrics, scorecard, trips report + CSV export),
+**Maintenance** (service reminders with real date & odometer due states), **Video Monitoring**
 (JT/T 1078 control + live gateway stream stats — no fabricated footage),
+**Notifications** (rule builder, webhook/email dispatch, delivery log),
 **Users & Roles**, **Audit Log** and **Settings**. It is responsive (collapsible
 nav, bottom-sheet lists on mobile). Vehicle status is derived from device
 communication and GPS timestamps, never from the WebSocket connection alone, and
@@ -160,6 +162,17 @@ video-control commands (`0x9101`/`0x9102`/`0x9201`) through it. Endpoints:
 dashboard gains a camera panel. **No fake video is shown**: browser playback of
 the 1078 stream is deliberately left until it can be validated against a physical
 XV-900-8.
+
+**Fleet Operations (Stage 6)** adds maintenance tracking, notification dispatch,
+and trip reports. Due states for maintenance items are computed from real calendar
+dates and vehicle odometers (overdue, due soon within 7 days/500 km, ok, done).
+Notification rules support severity filtering, wildcard event types (`alarm_*`),
+real webhook dispatch, and delivery logging. Endpoints:
+`GET/POST /api/maintenance`, `POST /api/maintenance/{id}/complete`,
+`DELETE /api/maintenance/{id}`, `GET/POST /api/notifications/rules`,
+`PUT /api/notifications/rules/{id}`, `DELETE /api/notifications/rules/{id}`,
+`POST /api/notifications/rules/{id}/test`, `GET /api/notifications/log`,
+`GET /api/reports/trips`, `GET /api/reports/trips.csv`.
 
 ## Production deployment (Stage 5)
 

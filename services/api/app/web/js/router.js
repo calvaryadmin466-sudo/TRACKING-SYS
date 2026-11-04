@@ -15,6 +15,8 @@ import * as vehicle from "./screens/vehicle.js";
 import * as admin from "./screens/admin.js";
 import * as audit from "./screens/audit.js";
 import * as settings from "./screens/settings.js";
+import * as maintenance from "./screens/maintenance.js";
+import * as notifications from "./screens/notifications.js";
 
 const ADMIN = ["super_admin", "company_admin"];
 
@@ -26,9 +28,11 @@ const ROUTES = [
   { path: "/devices",   title: "Device Management", icon: "cpu",           group: "Fleet",      nav: true,  mod: devices },
   { path: "/geofences", title: "Geofences",      icon: "hexagon",          group: "Fleet",      nav: true,  mod: geofences, flush: true },
   { path: "/video",     title: "Video Monitoring", icon: "video",          group: "Fleet",      nav: true,  mod: video },
+  { path: "/maintenance", title: "Maintenance", icon: "wrench", group: "Fleet", nav: true, mod: maintenance },
   { path: "/reports",   title: "Reports & Analytics", icon: "bar-chart-3", group: "Analytics",  nav: true,  mod: reports },
   { path: "/admin/users", title: "Users & Roles", icon: "users",          group: "Administration", nav: true, roles: ADMIN, mod: admin },
   { path: "/audit",     title: "Audit Log",      icon: "scroll-text",      group: "Administration", nav: true, roles: ADMIN, mod: audit },
+  { path: "/notifications", title: "Notifications", icon: "bell", group: "Administration", nav: true, roles: ["super_admin", "company_admin", "fleet_manager"], mod: notifications },
   { path: "/settings",  title: "Settings",       icon: "settings",         group: "Administration", nav: true, mod: settings },
   { path: "/vehicle/:id", title: "Vehicle Details", icon: "truck",         nav: false, mod: vehicle },
 ];

@@ -67,4 +67,11 @@ export const ICONS = {
   wifi: `<path d="M2 8.5a16 16 0 0 1 20 0"/><path d="M5 12a11 11 0 0 1 14 0"/><path d="M8.5 15.5a6 6 0 0 1 7 0"/><path d="M12 19h.01"/>`,
   "wifi-off": `<path d="M2 8.5a16 16 0 0 1 6-3.3"/><path d="M19.5 6.5A16 16 0 0 1 22 8.5"/><path d="M5 12a11 11 0 0 1 4-2.6"/><path d="M8.5 15.5a6 6 0 0 1 7 0"/><path d="M12 19h.01"/><path d="m2 2 20 20"/>`,
   x: `<path d="M18 6 6 18M6 6l12 12"/>`,
+  plus: `<path d="M12 5v14M5 12h14"/>`,
+  wrench: `<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2.4-.6-.6-2.4z"/>`,
+  clock: `<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>`,
+  zap: `<path d="M13 2 4 14h6l-1 8 9-12h-6z"/>`,
+  send: `<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>`,
+  webhook: `<path d="M18 16.5a4 4 0 1 1-4-6.9"/><path d="M12 7.5a4 4 0 0 1 6.9 4"/><path d="M6 12a4 4 0 0 0 6 5"/><circle cx="12" cy="8" r="1.5"/><circle cx="6" cy="16" r="1.5"/><circle cx="18" cy="16" r="1.5"/>`,
+  mail_plus: `<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/>`,
 };

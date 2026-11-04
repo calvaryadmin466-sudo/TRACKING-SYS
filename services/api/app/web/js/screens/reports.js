@@ -1,5 +1,5 @@
 import { get, getToken } from "../api.js";
-import { icon, refreshIcons, qs, esc, num, emptyHtml, loadingHtml, toast } from "../ui.js";
+import { icon, refreshIcons, qs, esc, num, fmtDateTime, emptyHtml, loadingHtml, toast } from "../ui.js";
 
 export async function render(root) {
   root.innerHTML = `
@@ -16,7 +16,12 @@ export async function render(root) {
       <div class="table-wrap" id="r-table">${loadingHtml()}</div></div>
     <div class="card section-gap"><div class="card-head">${icon("gauge")}<h3>Driver behaviour scorecard</h3>
       <span class="grow right muted" id="ds-avg" style="font-size:12px"></span></div>
-      <div class="table-wrap" id="ds-table">${loadingHtml()}</div></div>`;
+      <div class="table-wrap" id="ds-table">${loadingHtml()}</div></div>
+    <div class="card section-gap"><div class="card-head">${icon("route")}<h3>Trips report</h3>
+      <div class="grow"></div>
+      <button class="btn" id="tr-csv">${icon("download")} Export Trips CSV</button></div>
+      <div class="stats" id="tr-stats"></div>
+      <div class="table-wrap" id="tr-table">${loadingHtml()}</div></div>`;
   refreshIcons(root);
 
   function scoreBadge(score, grade) {
@@ -92,7 +97,53 @@ export async function render(root) {
     } catch { toast("Export failed", "error"); }
   }
 
-  qs("#r-apply").addEventListener("click", load);
+  async function loadTrips() {
+    const el = qs("#tr-table"); if (!el) return;
+    el.innerHTML = loadingHtml();
+    const data = await get("/api/reports/trips" + query());
+    if (!qs("#tr-table")) return;
+    const T = data.totals || {};
+    const stat = (cls, ic, val, label) => `<div class="stat ${cls}"><div class="ico">${icon(ic)}</div>
+      <div class="label">${label}</div><div class="value">${val}</div></div>`;
+    const statsEl = qs("#tr-stats");
+    if (statsEl) {
+      statsEl.innerHTML =
+        stat("pri", "route", T.trips ?? 0, "Total trips") +
+        stat("ok", "milestone", num(T.total_distance_km, 1), "Total distance (km)") +
+        stat("", "timer", T.total_duration_min != null ? num(T.total_duration_min, 0) + " min" : "-", "Total duration") +
+        stat("", "route", num(T.avg_distance_km, 1), "Avg distance (km)") +
+        stat("warn", "map-pin", num(T.longest_trip_km, 1), "Longest trip (km)");
+      refreshIcons(statsEl);
+    }
+    const trEl = qs("#tr-table"); if (!trEl) return;
+    const rows = data.trips || [];
+    trEl.innerHTML = rows.length ? `<table class="tbl"><thead><tr>
+      <th>Vehicle</th><th>Started</th><th>Ended</th><th class="num">Distance (km)</th>
+      <th class="num">Max speed (km/h)</th><th class="num">Duration (min)</th></tr></thead><tbody>
+      ${rows.map((r) => `<tr>
+        <td>${esc(r.vehicle || "—")}</td>
+        <td>${fmtDateTime(r.started_at)}</td><td>${fmtDateTime(r.ended_at)}</td>
+        <td class="num">${num(r.distance_km, 1)}</td><td class="num">${num(r.max_speed_kmh, 0)}</td>
+        <td class="num">${num(r.duration_min, 0)}</td></tr>`).join("")}
+      </tbody></table>` : emptyHtml("route", "No trips", "No trip data available for the selected range.");
+    refreshIcons(trEl);
+  }
+
+  async function tripsCsv() {
+    try {
+      const res = await fetch("/api/reports/trips.csv" + query(), { headers: { Authorization: "Bearer " + getToken() } });
+      if (!res) return;
+      if (!res.ok) throw new Error();
+      const blob = await res.blob(); if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = "trips_report.csv"; a.click();
+      URL.revokeObjectURL(url); toast("Trips CSV exported", "success");
+    } catch { toast("Trips export failed", "error"); }
+  }
+
+  qs("#r-apply").addEventListener("click", () => { load(); loadTrips(); });
   qs("#r-csv").addEventListener("click", csv);
+  qs("#tr-csv").addEventListener("click", tripsCsv);
   await load();
+  await loadTrips();
 }

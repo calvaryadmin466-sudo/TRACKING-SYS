@@ -49,6 +49,7 @@ def device_to_dict(d: DeviceStatus, s: Settings) -> dict:
         "first_seen": _iso(d.first_seen),
         "last_seen": _iso(d.last_seen),
         "last_seen_age_s": last_age,
+        "odometer_km": d.mileage_km,
         "online": online,
         "has_position": d.has_position,
         "position": None if not d.has_position else {
@@ -202,6 +203,45 @@ def video_session_to_dict(v: VideoSession) -> dict:
         "video_host": v.video_host,
         "video_tcp_port": v.video_tcp_port,
         "detail": v.detail,
+    }
+
+
+def maintenance_to_dict(m) -> dict:
+    return {
+        "id": m.id,
+        "device_id": m.device_id,
+        "device_label": m.device_label,
+        "title": m.title,
+        "kind": m.kind,
+        "due_date": _iso(m.due_date),
+        "due_odometer_km": m.due_odometer_km,
+        "odometer_at_create": m.odometer_at_create,
+        "status": m.status,
+        "completed_at": _iso(m.completed_at),
+        "notes": m.notes,
+        "created_at": _iso(m.created_at),
+    }
+
+
+def rule_to_dict(r) -> dict:
+    return {
+        "id": r.id,
+        "name": r.name,
+        "organization_id": r.organization_id,
+        "event_types": list(r.event_types or []),
+        "min_severity": r.min_severity,
+        "channel": r.channel,
+        "target": r.target,
+        "active": r.active,
+        "created_at": _iso(r.created_at),
+    }
+
+
+def notification_to_dict(n) -> dict:
+    return {
+        "id": n.id, "rule_id": n.rule_id, "event_id": n.event_id, "event_type": n.event_type,
+        "channel": n.channel, "target": n.target, "status": n.status, "detail": n.detail,
+        "at": _iso(n.at),
     }
 
 

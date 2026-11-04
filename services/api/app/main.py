@@ -16,8 +16,10 @@ from .hardening import RateLimiter, SecurityHeadersMiddleware
 from .demo_feed import run_demo_feed
 from .engine_runner import run_engine
 from .live import router as live_router
+from .notification_runner import run_notifications
 from .routers import (
-    admin, auth, devices, events, geofences, health, positions, reports, trips, vehicles, video,
+    admin, auth, devices, events, geofences, health, maintenance, notifications, positions,
+    reports, trips, vehicles, video,
 )
 from .security import hash_password
 from .store.base import Geofence, Store, User
@@ -86,6 +88,7 @@ def create_app() -> FastAPI:
             tasks.append(asyncio.create_task(run_demo_feed(store, org_id)))
         if settings.engine_enabled:
             tasks.append(asyncio.create_task(run_engine(store, settings)))
+            tasks.append(asyncio.create_task(run_notifications(store, settings.engine_poll_s)))
         try:
             yield
         finally:
@@ -122,6 +125,8 @@ def create_app() -> FastAPI:
     app.include_router(video.router)
     app.include_router(reports.router)
     app.include_router(admin.router)
+    app.include_router(maintenance.router)
+    app.include_router(notifications.router)
     app.include_router(live_router)
 
     # Dashboard (build-free static assets) served at the root, after API routes.

@@ -151,6 +151,61 @@ async def driver_scores(frm: Optional[str] = Query(default=None, alias="from"),
             "weights": {**SCORE_WEIGHTS, "alarm_*": ALARM_WEIGHT}}
 
 
+async def _collect_trips(store: Store, principal: Principal, frm, to):
+    devices = await store.list_devices(principal.org_scope())
+    label = {d.id: (d.vehicle_registration or d.plate or d.reporting_id) for d in devices}
+    out = []
+    for d in devices:
+        for t in await store.list_trips(d.id, 1000):
+            if not _in_range(t.started_at, frm, to):
+                continue
+            dur = None
+            if t.started_at and t.ended_at:
+                dur = round((t.ended_at - t.started_at).total_seconds() / 60.0, 1)
+            out.append({
+                "trip_id": t.id, "device_id": d.id, "vehicle": label.get(d.id, ""),
+                "started_at": _iso_opt(t.started_at), "ended_at": _iso_opt(t.ended_at),
+                "distance_km": t.distance_km, "max_speed_kmh": t.max_speed, "duration_min": dur,
+            })
+    out.sort(key=lambda r: r["started_at"] or "", reverse=True)
+    return out
+
+
+def _iso_opt(dt):
+    return dt.isoformat() if dt else None
+
+
+@router.get("/trips")
+async def trips_report(frm: Optional[str] = Query(default=None, alias="from"),
+                       to: Optional[str] = Query(default=None),
+                       principal: Principal = Depends(current_principal), store: Store = Depends(get_store)):
+    trips = await _collect_trips(store, principal, _parse(frm), _parse(to))
+    durations = [t["duration_min"] for t in trips if t["duration_min"] is not None]
+    totals = {
+        "trips": len(trips),
+        "total_distance_km": round(sum(t["distance_km"] for t in trips), 2),
+        "total_duration_min": round(sum(durations), 1),
+        "avg_distance_km": round(sum(t["distance_km"] for t in trips) / len(trips), 2) if trips else 0.0,
+        "longest_trip_km": round(max((t["distance_km"] for t in trips), default=0.0), 2),
+    }
+    return {"totals": totals, "trips": trips}
+
+
+@router.get("/trips.csv")
+async def trips_report_csv(frm: Optional[str] = Query(default=None, alias="from"),
+                           to: Optional[str] = Query(default=None),
+                           principal: Principal = Depends(current_principal), store: Store = Depends(get_store)):
+    trips = await _collect_trips(store, principal, _parse(frm), _parse(to))
+    buf = io.StringIO()
+    cols = ["trip_id", "device_id", "vehicle", "started_at", "ended_at", "distance_km", "max_speed_kmh", "duration_min"]
+    w = csv.DictWriter(buf, fieldnames=cols, extrasaction="ignore")
+    w.writeheader()
+    for t in trips:
+        w.writerow(t)
+    return Response(content=buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=trips_report.csv"})
+
+
 @router.get("/fleet.csv")
 async def fleet_report_csv(frm: Optional[str] = Query(default=None, alias="from"),
                            to: Optional[str] = Query(default=None),

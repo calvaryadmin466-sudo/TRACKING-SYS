@@ -65,6 +65,7 @@ class DeviceStatus:
     acc: bool = False
     positioned: bool = False
     valid: bool = False
+    mileage_km: float = 0.0
     device_time: Optional[datetime] = None
     server_time: Optional[datetime] = None
 
@@ -82,6 +83,7 @@ class Position:
     positioned: bool = False
     valid: bool = False
     satellites: int = 0
+    mileage_km: float = 0.0
     simulated: bool = False
     device_time: Optional[datetime] = None
     server_time: Optional[datetime] = None
@@ -150,6 +152,50 @@ class Organization:
 class Role:
     id: int
     name: str
+
+
+@dataclass
+class MaintenanceItem:
+    id: int
+    device_id: Optional[int]
+    title: str
+    kind: str = "service"           # service|inspection|insurance|license|other
+    organization_id: Optional[int] = None
+    due_date: Optional[datetime] = None
+    due_odometer_km: Optional[float] = None
+    odometer_at_create: float = 0.0
+    status: str = "open"            # open|done
+    completed_at: Optional[datetime] = None
+    notes: str = ""
+    created_at: Optional[datetime] = None
+    # joined/computed (not persisted):
+    device_label: str = ""
+
+
+@dataclass
+class NotificationRule:
+    id: int
+    name: str
+    organization_id: Optional[int] = None
+    event_types: list = field(default_factory=list)  # empty = any type
+    min_severity: str = "warning"  # info|warning|alarm
+    channel: str = "webhook"
+    target: str = ""
+    active: bool = True
+    created_at: Optional[datetime] = None
+
+
+@dataclass
+class NotificationLogEntry:
+    id: Optional[int]
+    rule_id: Optional[int]
+    event_id: Optional[int]
+    event_type: str
+    channel: str
+    target: str
+    status: str
+    detail: str = ""
+    at: Optional[datetime] = None
 
 
 @dataclass
@@ -351,3 +397,44 @@ class Store(abc.ABC):
 
     @abc.abstractmethod
     async def list_raw_packets(self, reporting_id: str, limit: int) -> list[RawPacketView]: ...
+
+    # --- Fleet ops: maintenance, notification rules, notification log ---
+
+    @abc.abstractmethod
+    async def create_maintenance(self, m: MaintenanceItem) -> int: ...
+
+    @abc.abstractmethod
+    async def list_maintenance(self, org_id: Optional[int], device_id: Optional[int]) -> list[MaintenanceItem]: ...
+
+    @abc.abstractmethod
+    async def get_maintenance(self, mid: int) -> Optional[MaintenanceItem]: ...
+
+    @abc.abstractmethod
+    async def update_maintenance(self, m: MaintenanceItem) -> None: ...
+
+    @abc.abstractmethod
+    async def delete_maintenance(self, mid: int) -> None: ...
+
+    @abc.abstractmethod
+    async def create_rule(self, r: NotificationRule) -> int: ...
+
+    @abc.abstractmethod
+    async def list_rules(self, org_id: Optional[int]) -> list[NotificationRule]: ...
+
+    @abc.abstractmethod
+    async def all_active_rules(self) -> list[NotificationRule]: ...
+
+    @abc.abstractmethod
+    async def get_rule(self, rid: int) -> Optional[NotificationRule]: ...
+
+    @abc.abstractmethod
+    async def update_rule(self, r: NotificationRule) -> None: ...
+
+    @abc.abstractmethod
+    async def delete_rule(self, rid: int) -> None: ...
+
+    @abc.abstractmethod
+    async def save_notification(self, e: NotificationLogEntry) -> None: ...
+
+    @abc.abstractmethod
+    async def list_notifications(self, org_id: Optional[int], limit: int) -> list[NotificationLogEntry]: ...

@@ -11,7 +11,8 @@ import asyncpg
 
 from .base import (
     AuditEntry, CameraChannel, DevicePatch, DeviceStatus, Event, Geofence, LivePosition,
-    Organization, Position, RawPacketView, Role, Store, Trip, User, Vehicle, VideoSession,
+    MaintenanceItem, NotificationLogEntry, NotificationRule, Organization, Position,
+    RawPacketView, Role, Store, Trip, User, Vehicle, VideoSession,
 )
 
 _DEVICE_SELECT = """
@@ -19,12 +20,12 @@ SELECT d.id, d.reporting_id, d.serial_number, d.model, d.manufacturer, d.plate, 
        d.simulated, d.is_active, d.organization_id, d.vehicle_id, COALESCE(v.registration,''),
        d.first_seen, d.last_seen,
        p.lat, p.lon, p.speed, p.heading, p.altitude, p.acc, p.positioned, p.valid,
-       p.device_time, p.server_time, (p.server_time IS NOT NULL) AS has_pos
+       p.device_time, p.server_time, p.mileage_km, (p.server_time IS NOT NULL) AS has_pos
 FROM tracking_devices d
 LEFT JOIN vehicles v ON v.id = d.vehicle_id
 LEFT JOIN LATERAL (
     SELECT ST_Y(gp.geom) AS lat, ST_X(gp.geom) AS lon, gp.speed, gp.heading, gp.altitude,
-           gp.acc, gp.positioned, gp.valid, gp.device_time, gp.server_time
+           gp.acc, gp.positioned, gp.valid, gp.device_time, gp.server_time, gp.mileage_km
     FROM gps_positions gp WHERE gp.device_id = d.id
     ORDER BY gp.server_time DESC LIMIT 1
 ) p ON true
@@ -36,7 +37,7 @@ def _device_from_row(r: asyncpg.Record) -> DeviceStatus:
         id=r[0], reporting_id=r[1], serial_number=r[2], model=r[3], manufacturer=r[4],
         plate=r[5], protocol=r[6], simulated=r[7], active=r[8],
         organization_id=r[9], vehicle_id=r[10], vehicle_registration=r[11],
-        first_seen=r[12], last_seen=r[13], has_position=r[24],
+        first_seen=r[12], last_seen=r[13], has_position=r[25],
     )
     if d.has_position:
         d.latitude = r[14] or 0.0
@@ -49,6 +50,7 @@ def _device_from_row(r: asyncpg.Record) -> DeviceStatus:
         d.valid = bool(r[21])
         d.device_time = r[22]
         d.server_time = r[23]
+        d.mileage_km = r[24] or 0.0
     return d
 
 
@@ -285,6 +287,107 @@ class PostgresStore(Store):
         return [RawPacketView(id=r[0], reporting_id=r[1] or "", received_at=r[2], length=r[3],
                               message_name=r[4], decoded=r[5], checksum_ok=r[6], hex=r[7],
                               ascii=r[8], note=r[9]) for r in rows]
+
+    # --- Fleet ops: maintenance, notification rules, notification log ---
+
+    @staticmethod
+    def _maint_from_row(r) -> MaintenanceItem:
+        return MaintenanceItem(id=r[0], organization_id=r[1], device_id=r[2], title=r[3],
+                               kind=r[4], due_date=r[5], due_odometer_km=r[6],
+                               odometer_at_create=r[7] or 0.0, status=r[8], completed_at=r[9],
+                               notes=r[10] or "", created_at=r[11], device_label=r[12] or "")
+
+    _MAINT_COLS = ("m.id, m.organization_id, m.device_id, m.title, m.kind, m.due_date, "
+                   "m.due_odometer_km, m.odometer_at_create, m.status, m.completed_at, m.notes, "
+                   "m.created_at, COALESCE(v.registration, d.plate, d.reporting_id, '')")
+    _MAINT_FROM = ("FROM maintenance_items m LEFT JOIN tracking_devices d ON d.id=m.device_id "
+                   "LEFT JOIN vehicles v ON v.id=d.vehicle_id")
+
+    async def create_maintenance(self, m: MaintenanceItem) -> int:
+        return await self.pool.fetchval("""
+            INSERT INTO maintenance_items
+                (organization_id, device_id, title, kind, due_date, due_odometer_km,
+                 odometer_at_create, status, notes)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id""",
+            m.organization_id, m.device_id, m.title, m.kind, m.due_date, m.due_odometer_km,
+            m.odometer_at_create, m.status, m.notes)
+
+    async def list_maintenance(self, org_id, device_id) -> list[MaintenanceItem]:
+        rows = await self.pool.fetch(f"""
+            SELECT {self._MAINT_COLS} {self._MAINT_FROM}
+            WHERE ($1::bigint IS NULL OR m.organization_id=$1)
+              AND ($2::bigint IS NULL OR m.device_id=$2)
+            ORDER BY (m.status='open') DESC, m.due_date NULLS LAST""", org_id, device_id)
+        return [self._maint_from_row(r) for r in rows]
+
+    async def get_maintenance(self, mid) -> Optional[MaintenanceItem]:
+        r = await self.pool.fetchrow(f"SELECT {self._MAINT_COLS} {self._MAINT_FROM} WHERE m.id=$1", mid)
+        return self._maint_from_row(r) if r else None
+
+    async def update_maintenance(self, m: MaintenanceItem) -> None:
+        await self.pool.execute("""
+            UPDATE maintenance_items SET title=$2, kind=$3, due_date=$4, due_odometer_km=$5,
+                status=$6, completed_at=$7, notes=$8 WHERE id=$1""",
+            m.id, m.title, m.kind, m.due_date, m.due_odometer_km, m.status, m.completed_at, m.notes)
+
+    async def delete_maintenance(self, mid) -> None:
+        await self.pool.execute("DELETE FROM maintenance_items WHERE id=$1", mid)
+
+    @staticmethod
+    def _rule_from_row(r) -> NotificationRule:
+        return NotificationRule(id=r[0], organization_id=r[1], name=r[2],
+                                event_types=list(r[3] or []), min_severity=r[4], channel=r[5],
+                                target=r[6], active=r[7], created_at=r[8])
+
+    async def create_rule(self, r: NotificationRule) -> int:
+        return await self.pool.fetchval("""
+            INSERT INTO notification_rules (organization_id, name, event_types, min_severity, channel, target, active)
+            VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id""",
+            r.organization_id, r.name, r.event_types or None, r.min_severity, r.channel, r.target, r.active)
+
+    async def list_rules(self, org_id) -> list[NotificationRule]:
+        rows = await self.pool.fetch("""
+            SELECT id, organization_id, name, event_types, min_severity, channel, target, active, created_at
+            FROM notification_rules WHERE $1::bigint IS NULL OR organization_id=$1 OR organization_id IS NULL
+            ORDER BY id""", org_id)
+        return [self._rule_from_row(r) for r in rows]
+
+    async def all_active_rules(self) -> list[NotificationRule]:
+        rows = await self.pool.fetch("""
+            SELECT id, organization_id, name, event_types, min_severity, channel, target, active, created_at
+            FROM notification_rules WHERE active = TRUE""")
+        return [self._rule_from_row(r) for r in rows]
+
+    async def get_rule(self, rid) -> Optional[NotificationRule]:
+        r = await self.pool.fetchrow("""
+            SELECT id, organization_id, name, event_types, min_severity, channel, target, active, created_at
+            FROM notification_rules WHERE id=$1""", rid)
+        return self._rule_from_row(r) if r else None
+
+    async def update_rule(self, r: NotificationRule) -> None:
+        await self.pool.execute("""
+            UPDATE notification_rules SET name=$2, event_types=$3, min_severity=$4, channel=$5,
+                target=$6, active=$7 WHERE id=$1""",
+            r.id, r.name, r.event_types or None, r.min_severity, r.channel, r.target, r.active)
+
+    async def delete_rule(self, rid) -> None:
+        await self.pool.execute("DELETE FROM notification_rules WHERE id=$1", rid)
+
+    async def save_notification(self, e: NotificationLogEntry) -> None:
+        await self.pool.execute("""
+            INSERT INTO notification_log (rule_id, event_id, event_type, channel, target, status, detail)
+            VALUES ($1,$2,$3,$4,$5,$6,$7)""",
+            e.rule_id, e.event_id, e.event_type, e.channel, e.target, e.status, e.detail)
+
+    async def list_notifications(self, org_id, limit) -> list[NotificationLogEntry]:
+        rows = await self.pool.fetch("""
+            SELECT n.id, n.rule_id, n.event_id, n.event_type, n.channel, n.target, n.status, n.detail, n.at
+            FROM notification_log n LEFT JOIN notification_rules r ON r.id=n.rule_id
+            WHERE $1::bigint IS NULL OR r.organization_id=$1 OR r.organization_id IS NULL
+            ORDER BY n.at DESC LIMIT $2""", org_id, limit or 200)
+        return [NotificationLogEntry(id=r[0], rule_id=r[1], event_id=r[2], event_type=r[3],
+                                     channel=r[4], target=r[5], status=r[6], detail=r[7], at=r[8])
+                for r in rows]
 
     async def create_geofence(self, g: Geofence) -> int:
         ring = list(g.ring)

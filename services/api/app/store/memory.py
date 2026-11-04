@@ -12,7 +12,8 @@ from typing import Optional
 
 from .base import (
     AuditEntry, CameraChannel, DevicePatch, DeviceStatus, Event, Geofence, LivePosition,
-    Organization, Position, RawPacketView, Role, Store, Trip, User, Vehicle, VideoSession,
+    MaintenanceItem, NotificationLogEntry, NotificationRule, Organization, Position,
+    RawPacketView, Role, Store, Trip, User, Vehicle, VideoSession,
 )
 
 DEFAULT_ROLES = [
@@ -38,9 +39,13 @@ class MemoryStore(Store):
         self._geofences: dict[int, Geofence] = {}
         self._trips: dict[int, Trip] = {}
         self._video: dict[int, VideoSession] = {}
+        self._maintenance: dict[int, MaintenanceItem] = {}
+        self._rules: dict[int, NotificationRule] = {}
+        self._notifications: list[NotificationLogEntry] = []
         self._roles = {name: i + 1 for i, name in enumerate(DEFAULT_ROLES)}
         self._seq = {"user": 0, "org": 0, "vehicle": 0, "device": 0,
-                     "event": 0, "geofence": 0, "trip": 0, "video": 0}
+                     "event": 0, "geofence": 0, "trip": 0, "video": 0,
+                     "maint": 0, "rule": 0, "notif": 0}
 
     def _next(self, key: str) -> int:
         self._seq[key] += 1
@@ -100,6 +105,7 @@ class MemoryStore(Store):
             d.latitude, d.longitude, d.speed = p.latitude, p.longitude, p.speed
             d.heading, d.altitude = p.heading, p.altitude
             d.acc, d.positioned, d.valid = p.acc, p.positioned, p.valid
+            d.mileage_km = p.mileage_km
             d.device_time, d.server_time = p.device_time, p.server_time
             d.last_seen = p.server_time
         return d
@@ -383,6 +389,100 @@ class MemoryStore(Store):
         # In memory mode the API has no ingestion raw-packet store (that lives in
         # the Go ingestion process / PostgreSQL). Return empty.
         return []
+
+    # --- Fleet ops: maintenance, rules, notifications ---
+    def _device_label(self, device_id):
+        d = self._devices.get(device_id)
+        if not d:
+            return ""
+        return d.vehicle_registration or d.plate or d.reporting_id
+
+    async def create_maintenance(self, m: MaintenanceItem) -> int:
+        async with self._lock:
+            self._seq["maint"] += 1
+            m.id = self._seq["maint"]
+            m.created_at = m.created_at or _utcnow()
+            self._maintenance[m.id] = m
+            return m.id
+
+    async def list_maintenance(self, org_id, device_id) -> list[MaintenanceItem]:
+        async with self._lock:
+            out = []
+            for m in self._maintenance.values():
+                if org_id is not None and m.organization_id != org_id:
+                    continue
+                if device_id is not None and m.device_id != device_id:
+                    continue
+                m.device_label = self._device_label(m.device_id)
+                out.append(m)
+            out.sort(key=lambda x: (x.status != "open", x.due_date or _utcnow()))
+            return out
+
+    async def get_maintenance(self, mid) -> Optional[MaintenanceItem]:
+        async with self._lock:
+            m = self._maintenance.get(mid)
+            if m:
+                m.device_label = self._device_label(m.device_id)
+            return m
+
+    async def update_maintenance(self, m: MaintenanceItem) -> None:
+        async with self._lock:
+            if m.id in self._maintenance:
+                self._maintenance[m.id] = m
+
+    async def delete_maintenance(self, mid) -> None:
+        async with self._lock:
+            self._maintenance.pop(mid, None)
+
+    async def create_rule(self, r: NotificationRule) -> int:
+        async with self._lock:
+            self._seq["rule"] += 1
+            r.id = self._seq["rule"]
+            r.created_at = r.created_at or _utcnow()
+            self._rules[r.id] = r
+            return r.id
+
+    async def list_rules(self, org_id) -> list[NotificationRule]:
+        async with self._lock:
+            out = [r for r in self._rules.values()
+                   if org_id is None or r.organization_id == org_id or r.organization_id is None]
+            return sorted(out, key=lambda x: x.id)
+
+    async def all_active_rules(self) -> list[NotificationRule]:
+        async with self._lock:
+            return [r for r in self._rules.values() if r.active]
+
+    async def get_rule(self, rid) -> Optional[NotificationRule]:
+        async with self._lock:
+            return self._rules.get(rid)
+
+    async def update_rule(self, r: NotificationRule) -> None:
+        async with self._lock:
+            if r.id in self._rules:
+                self._rules[r.id] = r
+
+    async def delete_rule(self, rid) -> None:
+        async with self._lock:
+            self._rules.pop(rid, None)
+
+    async def save_notification(self, e: NotificationLogEntry) -> None:
+        async with self._lock:
+            self._seq["notif"] += 1
+            e.id = self._seq["notif"]
+            e.at = e.at or _utcnow()
+            self._notifications.append(e)
+
+    async def list_notifications(self, org_id, limit) -> list[NotificationLogEntry]:
+        async with self._lock:
+            rule_orgs = {r.id: r.organization_id for r in self._rules.values()}
+            out = []
+            for n in reversed(self._notifications):
+                if org_id is not None and rule_orgs.get(n.rule_id) not in (org_id, None):
+                    continue
+                out.append(n)
+                if limit and len(out) >= limit:
+                    break
+            return out
 
     # --- memory-only helpers (used by the labelled demo feed) ---
     async def inject_device(self, reporting_id: str, *, serial: str = "", model: str = "",
