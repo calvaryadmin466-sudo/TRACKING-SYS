@@ -459,3 +459,46 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .stats { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
   .service-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
 }
+
+/* ==========================================================================
+   Mobile-native finish — make it feel installed, not like a site in a browser
+   ========================================================================== */
+* { -webkit-tap-highlight-color: transparent; }
+/* Interactive chrome shouldn't be text-selectable or double-tap-zoomable. */
+.btn, button, .nav-item, .nav-link, .chip-toggle, .seg, .switch, .service-tile,
+.cam-btn, .veh-item, .mine-row, .bottom-nav .nav-item, .status-strip .sc, .stop-row {
+  -webkit-user-select: none; user-select: none; touch-action: manipulation;
+}
+/* Contain scrolling so a pane's overscroll never pulls the whole app or triggers
+   pull-to-refresh. */
+.content, .veh-list, .nav, .modal-body, .table-wrap, .map-settings, .detail-panel, #t-list {
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+}
+/* Honour the notch / home indicator. env() is 0 on non-notched/desktop. */
+@supports (padding: max(0px)) {
+  .topbar { padding-top: env(safe-area-inset-top, 0px); height: calc(var(--topbar-h) + env(safe-area-inset-top, 0px)); }
+}
+
+@media (max-width: 820px) {
+  /* 16px inputs stop iOS Safari from zooming the page on focus. */
+  .input, select.input, textarea.input, input, select, textarea { font-size: 16px; }
+  .content { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+  /* Comfortable touch targets. */
+  .chip-toggle { padding: 8px 14px; }
+  .veh-item { padding: 13px 14px; }
+  .mine-row { padding: 15px; }
+  .cam-btn { width: 34px; height: 34px; }
+}
+
+/* On touch devices, don't let :hover styling stick after a tap. */
+@media (hover: none) {
+  .service-tile:hover { background: var(--panel); border-color: var(--border-soft); }
+  .service-tile:hover .ti { background: var(--panel-2); }
+  .nav-item:hover:not(.active), .nav-link:hover:not(.active) { background: transparent; color: var(--text-muted); }
+  .nav-item:hover:not(.active) .i, .nav-link:hover:not(.active) .i { color: inherit; }
+  .veh-item:hover:not(.sel) { background: transparent; }
+  .mine-row:hover { background: transparent; }
+  .mine-row:hover .i { color: var(--text-muted); }
+  .status-strip .sc:hover:not(.on) { background: var(--panel); }
+  .btn.ghost:hover { background: transparent; }
+}

@@ -9,8 +9,13 @@ const MGR = ["super_admin", "company_admin", "fleet_manager"];
 
 export async function render(root) {
   const u = session.user;
-  let org = "";
-  try { const me = await get("/api/auth/me"); org = me.organization_name || me.org_name || ""; } catch {}
+  let me = {};
+  try { me = await get("/api/auth/me"); } catch {}
+  const org = me.organization_name || me.org_name || "";
+  const orgId = me.organization_id ?? u.organization_id;
+  const userId = me.user_id ?? u.id;
+
+  const kv = (k, v) => `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`;
 
   const link = (path, ic, label) => `
     <a class="mine-row" href="#${path}">${icon(ic)}<span class="grow">${label}</span>${icon("chevron-right", "i-sm")}</a>`;
@@ -29,6 +34,13 @@ export async function render(root) {
             ${org ? `<span class="badge neutral">${icon("building-2", "i-sm")} ${esc(org)}</span>` : ""}
           </div>
         </div>
+      </div>
+
+      <div class="mine-group-title">Account details</div>
+      <div class="card card-pad">
+        ${kv("Access level", esc(u.role) + (me.is_super_admin && u.role !== "super_admin" ? " · super admin" : ""))}
+        ${kv("Organization", org ? esc(org) : (orgId != null ? "#" + esc(String(orgId)) : (me.is_super_admin ? "All organizations" : "—")))}
+        ${kv("User ID", userId != null ? "#" + esc(String(userId)) : "—")}
       </div>
 
       <div class="mine-group-title">Account</div>
