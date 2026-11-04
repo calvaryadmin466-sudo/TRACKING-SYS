@@ -75,4 +75,5 @@ export const ICONS = {
   send: `<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>`,
   webhook: `<path d="M18 16.5a4 4 0 1 1-4-6.9"/><path d="M12 7.5a4 4 0 0 1 6.9 4"/><path d="M6 12a4 4 0 0 0 6 5"/><circle cx="12" cy="8" r="1.5"/><circle cx="6" cy="16" r="1.5"/><circle cx="18" cy="16" r="1.5"/>`,
   mail_plus: `<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/>`,
+  parking: `<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 12h4a2 2 0 0 0 0-4H9v8"/>`,
 };

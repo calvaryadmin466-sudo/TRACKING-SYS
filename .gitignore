@@ -27,3 +27,7 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+
+# Reference photos
+photos/
+
