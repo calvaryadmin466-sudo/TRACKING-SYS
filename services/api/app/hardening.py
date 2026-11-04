@@ -12,6 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 _CSP = (
     "default-src 'self'; "
     "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.openstreetmap.org "
+    "https://server.arcgisonline.com https://*.arcgisonline.com "
     "https://cdnjs.cloudflare.com; "
     "script-src 'self' https://cdnjs.cloudflare.com; "
     "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; "

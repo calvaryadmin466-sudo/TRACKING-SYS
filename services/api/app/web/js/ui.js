@@ -27,6 +27,7 @@ export function fmtAge(seconds) {
   return Math.round(s / 86400) + "d ago";
 }
 export function fmtDateTime(iso) { if (!iso) return "—"; const d = new Date(iso); return isNaN(d) ? "—" : d.toLocaleString(); }
+export function fmtDate(iso) { if (!iso) return "—"; const d = new Date(iso); return isNaN(d) ? "—" : d.toLocaleDateString(); }
 export function fmtTime(iso) { if (!iso) return "—"; const d = new Date(iso); return isNaN(d) ? "—" : d.toLocaleTimeString(); }
 export function num(n, dp = 0) { return (n == null) ? "—" : Number(n).toLocaleString(undefined, { maximumFractionDigits: dp }); }
 export function initials(s) { return (s || "?").slice(0, 2).toUpperCase(); }

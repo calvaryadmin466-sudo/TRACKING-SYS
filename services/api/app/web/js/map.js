@@ -1,15 +1,21 @@
 // Shared Leaflet helpers: base layers, status colors, heading marker icons.
 export const COLORS = { online: "#20C997", moving: "#3282F6", stale: "#F5B942", offline: "#F06464" };
 
-// Base layers from OpenStreetMap (no API key required). "Dark" reuses the OSM
+// Base layers, all keyless (no API key / token required). "Dark" reuses the OSM
 // tiles with a CSS filter (class dark-tiles) so the dark theme needs no keyed
-// provider; "Street" is the standard OSM render.
+// provider; "Street" is the standard OSM render; "Satellite" is Esri World
+// Imagery (note the {z}/{y}/{x} tile order and maxZoom 17).
 export function baseLayers() {
   const OSM = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
   const attr = "&copy; OpenStreetMap contributors";
   const dark = L.tileLayer(OSM, { maxZoom: 19, attribution: attr, className: "dark-tiles" });
   const street = L.tileLayer(OSM, { maxZoom: 19, attribution: attr });
-  return { "Dark": dark, "Street": street };
+  const ESRI_SAT = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+  const satellite = L.tileLayer(ESRI_SAT, {
+    maxZoom: 17,
+    attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics",
+  });
+  return { "Dark": dark, "Street": street, "Satellite": satellite };
 }
 
 // A circular marker with a heading arrow, colored by status.
