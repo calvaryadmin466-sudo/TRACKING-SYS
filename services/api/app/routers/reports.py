@@ -102,6 +102,55 @@ async def fleet_report(frm: Optional[str] = Query(default=None, alias="from"),
             "unavailable_metrics": ["idle_minutes"]}
 
 
+# Per-event-type demerit weights for the driver scorecard (score starts at 100).
+SCORE_WEIGHTS = {
+    "overspeed": 4,
+    "harsh_braking": 3,
+    "harsh_acceleration": 2,
+    "idling": 1,
+    "gps_signal_loss": 1,
+}
+ALARM_WEIGHT = 8  # any device-reported alarm_* event
+
+
+def _grade(score: float) -> str:
+    return "A" if score >= 90 else "B" if score >= 80 else "C" if score >= 70 else "D" if score >= 60 else "F"
+
+
+@router.get("/driver-scores")
+async def driver_scores(frm: Optional[str] = Query(default=None, alias="from"),
+                        to: Optional[str] = Query(default=None),
+                        principal: Principal = Depends(current_principal),
+                        store: Store = Depends(get_store)):
+    frm_dt, to_dt = _parse(frm), _parse(to)
+    devices = await store.list_devices(principal.org_scope())
+    rows = []
+    for d in devices:
+        events = await store.list_events(principal.org_scope(), d.id, frm_dt, None, 5000)
+        if to_dt:
+            events = [e for e in events if e.at and e.at <= to_dt]
+        counts, demerits = {}, 0
+        for e in events:
+            if e.type.startswith("alarm_"):
+                w = ALARM_WEIGHT
+            else:
+                w = SCORE_WEIGHTS.get(e.type, 0)
+            if w:
+                counts[e.type] = counts.get(e.type, 0) + 1
+                demerits += w
+        score = max(0, 100 - demerits)
+        rows.append({
+            "device_id": d.id, "reporting_id": d.reporting_id,
+            "vehicle": d.vehicle_registration or d.plate or "", "simulated": d.simulated,
+            "score": score, "grade": _grade(score), "events": counts,
+            "total_incidents": sum(counts.values()),
+        })
+    rows.sort(key=lambda r: r["score"])
+    avg = round(sum(r["score"] for r in rows) / len(rows), 1) if rows else 100.0
+    return {"fleet_average": avg, "drivers": rows,
+            "weights": {**SCORE_WEIGHTS, "alarm_*": ALARM_WEIGHT}}
+
+
 @router.get("/fleet.csv")
 async def fleet_report_csv(frm: Optional[str] = Query(default=None, alias="from"),
                            to: Optional[str] = Query(default=None),

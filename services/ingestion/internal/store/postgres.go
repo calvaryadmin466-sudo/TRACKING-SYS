@@ -128,9 +128,17 @@ VALUES ($1,$2,$3,$4, ST_SetSRID(ST_MakePoint($5,$6),4326), $7,$8,$9,$10,$11,$12,
 }
 
 func (s *PostgresStore) SaveEvent(ctx context.Context, e Event) error {
+	sev := e.Severity
+	if sev == "" {
+		sev = "info"
+	}
+	var lat, lon *float64
+	if e.HasLocation {
+		lat, lon = &e.Latitude, &e.Longitude
+	}
 	_, err := s.pool.Exec(ctx, `
-INSERT INTO events (device_id, reporting_id, type, at, detail, simulated)
-VALUES (NULLIF($1,0)::bigint, NULLIF($2,''), $3, $4, $5, $6)`,
-		e.DeviceID, e.ReportingID, e.Type, e.At, e.Detail, e.Simulated)
+INSERT INTO events (device_id, reporting_id, type, severity, at, detail, latitude, longitude, simulated)
+VALUES (NULLIF($1,0)::bigint, NULLIF($2,''), $3, $4, $5, $6, $7, $8, $9)`,
+		e.DeviceID, e.ReportingID, e.Type, sev, e.At, e.Detail, lat, lon, e.Simulated)
 	return err
 }

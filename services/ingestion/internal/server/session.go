@@ -22,6 +22,7 @@ type Session struct {
 	version       byte
 	authenticated bool
 	simulated     bool
+	lastAlarmFlag uint32
 	deviceDBID    int64
 	connectedAt   time.Time
 	lastSeen      time.Time
@@ -100,6 +101,17 @@ func (s *Session) setSimulated(v bool) {
 	s.mu.Lock()
 	s.simulated = v
 	s.mu.Unlock()
+}
+
+// newAlarmBits returns the alarm-flag bits that are newly set compared with the
+// previous location report (rising edge), and records the new flag. This keeps
+// one event per alarm onset instead of one per position while the alarm persists.
+func (s *Session) newAlarmBits(flag uint32) uint32 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rising := flag &^ s.lastAlarmFlag
+	s.lastAlarmFlag = flag
+	return rising
 }
 
 // Simulated reports whether this device identified itself as a simulator, so its

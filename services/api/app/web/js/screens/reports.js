@@ -13,8 +13,36 @@ export async function render(root) {
     </div>
     <div class="stats" id="r-stats"></div>
     <div class="card section-gap"><div class="card-head">${icon("table")}<h3>Per-vehicle</h3></div>
-      <div class="table-wrap" id="r-table">${loadingHtml()}</div></div>`;
+      <div class="table-wrap" id="r-table">${loadingHtml()}</div></div>
+    <div class="card section-gap"><div class="card-head">${icon("gauge")}<h3>Driver behaviour scorecard</h3>
+      <span class="grow right muted" id="ds-avg" style="font-size:12px"></span></div>
+      <div class="table-wrap" id="ds-table">${loadingHtml()}</div></div>`;
   refreshIcons(root);
+
+  function scoreBadge(score, grade) {
+    const cls = score >= 80 ? "online" : score >= 60 ? "stale" : "offline";
+    return `<span class="badge ${cls}"><span class="dot"></span>${score} · ${grade}</span>`;
+  }
+
+  async function loadScores() {
+    const el = qs("#ds-table"); if (!el) return;
+    const data = await get("/api/reports/driver-scores" + query());
+    const avg = qs("#ds-avg"); if (avg) avg.textContent = `fleet average: ${data.fleet_average}`;
+    if (!el) return;
+    el.innerHTML = data.drivers.length ? `<table class="tbl"><thead><tr>
+      <th>Vehicle</th><th>Reporting ID</th><th>Score</th><th class="num">Overspeed</th>
+      <th class="num">Harsh brake</th><th class="num">Harsh accel</th><th class="num">Idling</th>
+      <th class="num">Alarms</th></tr></thead><tbody>
+      ${data.drivers.map((r) => { const e = r.events || {};
+        const alarms = Object.entries(e).filter(([k]) => k.startsWith("alarm_")).reduce((a, [, v]) => a + v, 0);
+        return `<tr><td>${esc(r.vehicle || "—")} ${r.simulated ? "<span class='badge sim'>SIM</span>" : ""}</td>
+          <td class="mono">${esc(r.reporting_id)}</td><td>${scoreBadge(r.score, r.grade)}</td>
+          <td class="num">${e.overspeed || 0}</td><td class="num">${e.harsh_braking || 0}</td>
+          <td class="num">${e.harsh_acceleration || 0}</td><td class="num">${e.idling || 0}</td>
+          <td class="num">${alarms || 0}</td></tr>`; }).join("")}</tbody></table>`
+      : emptyHtml("gauge", "No driver data", "Scores appear once trips and events are recorded.");
+    refreshIcons(el);
+  }
 
   function query() {
     const f = qs("#r-from").value, t = qs("#r-to").value;
@@ -51,6 +79,7 @@ export async function render(root) {
         <td>${r.online ? "<span class='badge online'><span class='dot'></span>yes</span>" : "<span class='badge offline'><span class='dot'></span>no</span>"}</td></tr>`).join("")}
       </tbody></table>` : emptyHtml("bar-chart-3", "No data", "No vehicles or records in range.");
     refreshIcons(el);
+    await loadScores();
   }
 
   async function csv() {

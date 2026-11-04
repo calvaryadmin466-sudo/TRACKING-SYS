@@ -194,6 +194,19 @@ func (s *Server) handleLocation(ctx context.Context, conn net.Conn, sess *Sessio
 		Simulated:   sess.Simulated(),
 		RawHex:      inspector.Hex(msg.Body),
 	}
+	// Decode device-reported alarm bits into named safety alarms (rising edge).
+	if rising := sess.newAlarmBits(loc.AlarmFlag); rising != 0 {
+		for _, name := range jt808.AlarmNames(rising) {
+			_ = s.store.SaveEvent(ctx, store.Event{
+				DeviceID: sess.DBID(), ReportingID: msg.Header.ID,
+				Type: "alarm_" + name, Severity: "alarm", At: time.Now().UTC(),
+				Detail: "device-reported alarm", Latitude: loc.Latitude, Longitude: loc.Longitude,
+				HasLocation: loc.Valid, Simulated: sess.Simulated(),
+			})
+			s.log.Warn("device alarm", "reporting_id", msg.Header.ID, "alarm", name)
+		}
+	}
+
 	if err := s.store.SavePosition(ctx, pos); err != nil {
 		s.log.Error("save position failed", "conn", sess.ConnID, "reporting_id", msg.Header.ID, "err", err)
 	} else {

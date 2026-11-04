@@ -90,6 +90,20 @@ def test_trip_detection():
     assert trip.max_speed == 45
 
 
+def test_idle_detection():
+    eng = EventEngine(EngineConfig(idle_threshold_s=10))
+    eng.process_position(pos(acc=True, speed=0, t=0), [])      # idle starts
+    mid, _ = eng.process_position(pos(acc=True, speed=0, t=5), [])   # not yet over threshold
+    over, _ = eng.process_position(pos(acc=True, speed=0, t=20), [])  # idle > 10s
+    again, _ = eng.process_position(pos(acc=True, speed=0, t=30), []) # still idle, no repeat
+    assert "idling" not in types_of(mid)
+    assert "idling" in types_of(over)
+    assert "idling" not in types_of(again)
+    # Movement clears the idle state.
+    moving, _ = eng.process_position(pos(acc=True, speed=40, t=40), [])
+    assert "idling" not in types_of(moving)
+
+
 def test_offline_sweep():
     eng = EventEngine(EngineConfig(offline_threshold_s=120))
     now = T0 + timedelta(minutes=10)

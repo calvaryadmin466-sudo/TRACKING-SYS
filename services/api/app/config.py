@@ -81,8 +81,10 @@ def load_settings() -> Settings:
         online_threshold_s=_int("ONLINE_THRESHOLD_SECONDS", 120),
         stale_threshold_s=_int("STALE_THRESHOLD_SECONDS", 120),
         live_poll_s=_int("LIVE_POLL_SECONDS", 2),
-        # Demo feed defaults ON only in memory mode; never in production (Postgres).
-        demo_feed=_bool("DEMO_FEED", default=not use_pg),
+        # Demo feed is strictly opt-in (default OFF) so the platform never shows
+        # simulated data unless explicitly requested with DEMO_FEED=true. It is
+        # always refused in production regardless.
+        demo_feed=_bool("DEMO_FEED", default=False),
         cors_origins=[o for o in os.getenv("CORS_ORIGINS", "*").split(",") if o],
         engine_enabled=_bool("ENGINE_ENABLED", default=True),
         engine_poll_s=_int("ENGINE_POLL_SECONDS", 2),

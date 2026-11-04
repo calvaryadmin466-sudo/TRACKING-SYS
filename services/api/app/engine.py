@@ -31,6 +31,8 @@ class EngineConfig:
     min_trip_distance_m: float = 200.0
     offline_threshold_s: float = 120.0
     max_accel_dt_s: float = 60.0  # ignore accel over long gaps (stale data)
+    idle_threshold_s: float = 180.0  # ignition on + stationary this long -> idling
+    idle_speed_kmh: float = 2.0
 
 
 @dataclass
@@ -55,6 +57,8 @@ class _DevState:
     inside: set = field(default_factory=set)
     online: Optional[bool] = None
     trip: Optional[_TripAcc] = None
+    idle_since: Optional[datetime] = None
+    idling: bool = False
 
 
 def _aware(dt: Optional[datetime]) -> Optional[datetime]:
@@ -131,6 +135,18 @@ class EventEngine:
             elif was_inside and not now_inside:
                 st.inside.discard(gf.id)
                 ev("geofence_exit", "warning", gf.name)
+
+        # Idle detection: ignition on but stationary beyond the threshold.
+        if pos.acc and pos.speed <= cfg.idle_speed_kmh:
+            if st.idle_since is None:
+                st.idle_since = now
+            elif not st.idling and (now - st.idle_since).total_seconds() >= cfg.idle_threshold_s:
+                st.idling = True
+                mins = int((now - st.idle_since).total_seconds() // 60)
+                ev("idling", "warning", f"stationary with ignition on for {mins} min")
+        else:
+            st.idle_since = None
+            st.idling = False
 
         # Trips.
         finished = self._update_trip(st, pos, now)

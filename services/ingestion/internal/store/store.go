@@ -82,8 +82,12 @@ type Event struct {
 	DeviceID    int64
 	ReportingID string
 	Type        string
+	Severity    string // info | warning | alarm
 	At          time.Time
 	Detail      string
+	Latitude    float64
+	Longitude   float64
+	HasLocation bool
 	Simulated   bool
 }
 
