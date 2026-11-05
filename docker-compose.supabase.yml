@@ -1,0 +1,19 @@
+# Overlay: use managed Supabase Postgres instead of the bundled `db` container.
+# The API and ingestion server connect to Supabase via SUPABASE_DB_URL (set it in
+# .env — never commit it). Run only the app services (no local db/redis needed):
+#
+#   docker compose -f docker-compose.yml -f docker-compose.supabase.yml up -d --build api ingestion
+#
+# The dashboard is served by the API at http://localhost:8080.
+# Migrations are NOT auto-applied to Supabase — run migrations 0001-0007 in the
+# Supabase SQL editor first (see DEPLOYMENT.md / the migrations/ folder).
+services:
+  api:
+    depends_on: []
+    environment:
+      DATABASE_URL: "${SUPABASE_DB_URL}"
+
+  ingestion:
+    depends_on: []
+    environment:
+      DATABASE_URL: "${SUPABASE_DB_URL}"
