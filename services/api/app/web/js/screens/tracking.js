@@ -59,7 +59,7 @@ export async function render(root, ctx) {
 
   const map = L.map(qs("#map"), { zoomControl: true, attributionControl: true }).setView([22.5726, 88.3639], 11);
   const layers = baseLayers();
-  layers["Dark"].addTo(map);
+  layers["Street"].addTo(map);
   L.control.layers(layers, {}, { position: "topright" }).addTo(map);
 
   const clusterGroup = L.markerClusterGroup({ maxClusterRadius: 48, showCoverageOnHover: false });

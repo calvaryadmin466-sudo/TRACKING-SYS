@@ -3,31 +3,31 @@
    Dark fleet-operations theme. Tokens first, then components, layout, responsive.
    ========================================================================== */
 :root {
-  /* Palette (per brand spec) */
-  --bg: #101827;
-  --panel: #1B2638;
-  --panel-2: #22304a;
-  --panel-3: #2a3a57;
-  --primary: #3282F6;
-  --primary-dim: #2a6fd6;
-  --teal: #20C997;
-  --amber: #F5B942;
-  --red: #F06464;
+  /* Palette — clean light theme, royal-blue primary (BoldTrack-style) */
+  --bg: #EEF1F6;
+  --panel: #FFFFFF;
+  --panel-2: #F3F6FB;
+  --panel-3: #E7ECF4;
+  --primary: #2563EB;
+  --primary-dim: #1D4FD1;
+  --teal: #16A34A;
+  --amber: #E08E0B;
+  --red: #E5484D;
 
   /* Text */
-  --text: #E7EDF6;
-  --text-muted: #94A3B8;
-  --text-dim: #64748B;
+  --text: #172033;
+  --text-muted: #5B667A;
+  --text-dim: #8A94A6;
 
   /* Lines & surfaces */
-  --border: #2A3850;
-  --border-soft: #233049;
-  --overlay: rgba(8, 13, 24, .66);
+  --border: #E2E8F1;
+  --border-soft: #EBEFF5;
+  --overlay: rgba(20, 28, 45, .45);
 
   /* Radii / shadow / spacing */
   --r-sm: 6px; --r: 10px; --r-lg: 14px; --r-full: 999px;
-  --shadow: 0 6px 24px rgba(0,0,0,.28);
-  --shadow-sm: 0 2px 8px rgba(0,0,0,.2);
+  --shadow: 0 6px 24px rgba(20,30,60,.12);
+  --shadow-sm: 0 1px 3px rgba(20,30,60,.08);
   --sidebar-w: 236px;
   --topbar-h: 58px;
   --bottom-nav-h: 60px;
@@ -58,7 +58,7 @@ a { color: var(--primary); text-decoration: none; }
 .wrap { flex-wrap: wrap; }
 h1,h2,h3,h4 { margin: 0; font-weight: 650; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: #2c3a54; border-radius: 10px; }
+::-webkit-scrollbar-thumb { background: #c7d0dd; border-radius: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* Icons (Lucide) */
@@ -78,7 +78,7 @@ h1,h2,h3,h4 { margin: 0; font-weight: 650; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
 .btn.primary:hover { background: var(--primary-dim); }
-.btn.danger { background: transparent; border-color: #5a3340; color: var(--red); }
+.btn.danger { background: transparent; border-color: #f0c0c3; color: var(--red); }
 .btn.danger:hover { background: rgba(240,100,100,.12); }
 .btn.ghost { background: transparent; }
 .btn.ghost:hover { background: var(--panel-2); }
@@ -88,10 +88,10 @@ h1,h2,h3,h4 { margin: 0; font-weight: 650; }
 /* ---------- Inputs ---------- */
 .input, select.input, textarea.input {
   width: 100%; padding: 9px 11px; border-radius: var(--r-sm);
-  border: 1px solid var(--border); background: #14202f; color: var(--text);
+  border: 1px solid var(--border); background: #ffffff; color: var(--text);
   font-size: 13px; font-family: inherit; outline: none;
 }
-.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(50,130,246,.18); }
+.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.18); }
 .input::placeholder { color: var(--text-dim); }
 label.field { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
 .field-group { margin-bottom: 14px; }
@@ -112,7 +112,7 @@ label.field { display: block; font-size: 12px; color: var(--text-muted); margin-
 .badge.offline .dot { background: var(--red); }
 .badge.stale { background: rgba(245,185,66,.15); color: var(--amber); }
 .badge.stale .dot { background: var(--amber); }
-.badge.moving { background: rgba(50,130,246,.15); color: var(--primary); }
+.badge.moving { background: rgba(37,99,235,.15); color: var(--primary); }
 .badge.idle { background: rgba(148,163,184,.14); color: var(--text-muted); }
 .badge.sim { background: rgba(245,185,66,.16); color: var(--amber); border-color: rgba(245,185,66,.35); }
 .badge.alarm { background: rgba(240,100,100,.16); color: var(--red); }
@@ -154,7 +154,7 @@ table.tbl th {
   position: sticky; top: 0; background: var(--panel); z-index: 1;
 }
 table.tbl td { padding: 10px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
-table.tbl tr:hover td { background: rgba(255,255,255,.02); }
+table.tbl tr:hover td { background: rgba(0,0,0,.03); }
 table.tbl tr.clickable { cursor: pointer; }
 table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -194,7 +194,7 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
    App shell
    ========================================================================== */
 .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; grid-template-rows: 100%; height: 100%; }
-.sidebar { background: #0c1420; border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+.sidebar { background: #ffffff; border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 16px; height: var(--topbar-h);
   border-bottom: 1px solid var(--border); flex: none; }
 .brand .logo { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--primary), #6aa6ff);
@@ -211,7 +211,7 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .nav-item .ni-ic { display: inline-flex; }
 .nav-link { font-size: 13px; }
 .nav-item:hover, .nav-link:hover { background: var(--panel); color: var(--text); }
-.nav-item.active, .nav-link.active { background: rgba(50,130,246,.14); color: #cfe0fb; }
+.nav-item.active, .nav-link.active { background: rgba(37,99,235,.14); color: var(--primary); }
 .nav-item.active .i, .nav-link.active .i { color: var(--primary); }
 .nav-item .count { margin-left: auto; font-size: 11px; background: var(--red); color: #fff;
   border-radius: var(--r-full); padding: 0 7px; line-height: 1.5; }
@@ -247,7 +247,7 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .chip-toggle { padding: 5px 11px; border: 1px solid var(--border); border-radius: var(--r-full);
   background: transparent; color: var(--text-muted); font-size: 12px; cursor: pointer; }
-.chip-toggle.on { background: rgba(50,130,246,.15); border-color: var(--primary); color: #cfe0fb; }
+.chip-toggle.on { background: rgba(37,99,235,.15); border-color: var(--primary); color: var(--primary); }
 
 /* ---------- Service hub (app-style tool grid) ---------- */
 .service-group { margin-bottom: 22px; }
@@ -261,7 +261,7 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .service-tile:active { transform: translateY(1px); }
 .service-tile .ti { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center;
   background: var(--panel-2); color: var(--primary); }
-.service-tile:hover .ti { background: rgba(50,130,246,.16); }
+.service-tile:hover .ti { background: rgba(37,99,235,.16); }
 .service-tile .tl { font-size: 12.5px; font-weight: 600; line-height: 1.25; }
 
 /* ---------- Mine (account) ---------- */
@@ -291,7 +291,7 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
   transition: background .12s; }
 .status-strip .sc:last-child { border-right: 0; }
 .status-strip .sc:hover { background: var(--panel-2); }
-.status-strip .sc.on { background: rgba(50,130,246,.16); box-shadow: inset 0 -2px 0 var(--primary); }
+.status-strip .sc.on { background: rgba(37,99,235,.16); box-shadow: inset 0 -2px 0 var(--primary); }
 .status-strip .sc .n { font-size: 18px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
 .status-strip .sc .l { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
 .status-strip .sc.ok .n { color: var(--teal); }
@@ -344,7 +344,7 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---------- Login ---------- */
 .login { height: 100%; display: grid; place-items: center; background:
-  radial-gradient(1200px 500px at 70% -10%, rgba(50,130,246,.14), transparent), var(--bg); padding: 16px; }
+  radial-gradient(1200px 500px at 70% -10%, rgba(37,99,235,.14), transparent), var(--bg); padding: 16px; }
 .login-card { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--border);
   border-radius: var(--r-lg); box-shadow: var(--shadow); padding: 28px; }
 .login-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 20px; }
@@ -357,19 +357,19 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .map-side { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
 .map-side.collapsed { display: none; }
 .map-wrap { position: relative; min-width: 0; }
-#map, .mapel { position: absolute; inset: 0; background: #0e1726; }
-.leaflet-container { background: #0e1726; font-family: var(--ff); }
+#map, .mapel { position: absolute; inset: 0; background: #E4E9F0; }
+.leaflet-container { background: #E4E9F0; font-family: var(--ff); }
 /* Dark map: filter the standard OSM tiles (no keyed provider needed).
    Leaflet's className option puts the class on the layer container. */
 .leaflet-layer.dark-tiles { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.75); }
 .leaflet-control-layers, .leaflet-bar a { background: var(--panel) !important; color: var(--text) !important; border-color: var(--border) !important; }
 .leaflet-control-layers-expanded { padding: 8px 10px; }
 .leaflet-bar a { border-bottom-color: var(--border) !important; }
-.leaflet-control-attribution { background: rgba(16,24,39,.7) !important; color: var(--text-dim) !important; }
+.leaflet-control-attribution { background: rgba(255,255,255,.82) !important; color: var(--text-dim) !important; }
 .leaflet-control-attribution a { color: var(--text-muted) !important; }
 .veh-list { overflow-y: auto; flex: 1; }
 .veh-item { padding: 10px 14px; border-bottom: 1px solid var(--border-soft); cursor: pointer; display: flex; gap: 10px; align-items: center; }
-.veh-item:hover { background: var(--panel-2); } .veh-item.sel { background: rgba(50,130,246,.12); }
+.veh-item:hover { background: var(--panel-2); } .veh-item.sel { background: rgba(37,99,235,.12); }
 .veh-item .meta { min-width: 0; flex: 1; } .veh-item .title { font-weight: 600; font-size: 13px; }
 .veh-item .sub { font-size: 11.5px; color: var(--text-muted); }
 .map-overlay { position: absolute; z-index: 600; }
@@ -398,7 +398,7 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
   border: 1px solid var(--border); position: relative; cursor: pointer; flex: none; padding: 0; transition: background .15s; }
 .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
   background: var(--text-muted); transition: transform .15s, background .15s; }
-.switch.on { background: rgba(50,130,246,.5); border-color: var(--primary); }
+.switch.on { background: rgba(37,99,235,.5); border-color: var(--primary); }
 .switch.on::after { transform: translateX(16px); background: #fff; }
 .seg-group { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
 .seg { padding: 4px 12px; background: transparent; color: var(--text-muted); border: 0; border-right: 1px solid var(--border);
@@ -439,7 +439,7 @@ table.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
   /* Bottom nav is a normal flex child of .main, so content (and full-bleed maps)
      naturally sit above it — no fixed overlay, no content clipping. */
-  .bottom-nav { display: flex; flex: none; background: #0c1420; border-top: 1px solid var(--border);
+  .bottom-nav { display: flex; flex: none; background: #ffffff; border-top: 1px solid var(--border);
     height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px); }
   .bottom-nav .nav-item { flex: 1; flex-direction: column; gap: 3px; margin: 0; padding: 7px 2px;

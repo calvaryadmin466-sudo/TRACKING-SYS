@@ -98,7 +98,7 @@ export async function render(root, ctx) {
   refreshIcons(root);
 
   const map = L.map(qs("#t-map"), { zoomControl: true }).setView([22.57, 88.36], 5);
-  baseLayers()["Dark"].addTo(map);
+  baseLayers()["Street"].addTo(map);
   setTimeout(() => map.invalidateSize(), 80);
   let layer = null;
 
