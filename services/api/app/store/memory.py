@@ -139,6 +139,37 @@ class MemoryStore(Store):
                 d.active = patch.active
             if patch.plate is not None:
                 d.plate = patch.plate
+            if patch.ip_address is not None:
+                d.ip_address = patch.ip_address
+
+    async def get_device_by_reporting_id(self, reporting_id: str) -> Optional[DeviceStatus]:
+        async with self._lock:
+            for d in self._devices.values():
+                if d.reporting_id == reporting_id:
+                    return self._apply_latest(d)
+            return None
+
+    async def provision_device(self, reporting_id, plate, ip_address, model, organization_id):
+        async with self._lock:
+            for d in self._devices.values():
+                if d.reporting_id == reporting_id:
+                    if plate:
+                        d.plate = plate
+                    if ip_address:
+                        d.ip_address = ip_address
+                    if model:
+                        d.model = model
+                    # Only claim an unassigned device; never move it between orgs here.
+                    if organization_id is not None and d.organization_id is None:
+                        d.organization_id = organization_id
+                    return d.id, False
+            did = self._next("device")
+            self._devices[did] = DeviceStatus(
+                id=did, reporting_id=reporting_id, plate=plate, ip_address=ip_address,
+                model=model, simulated=False, organization_id=organization_id,
+                first_seen=_utcnow(), last_seen=None,
+            )
+            return did, True
 
     # --- vehicles ---
     async def list_vehicles(self, org_id: Optional[int]) -> list[Vehicle]:

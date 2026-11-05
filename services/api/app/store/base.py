@@ -81,6 +81,7 @@ class DeviceStatus:
     model: str = ""
     manufacturer: str = ""
     plate: str = ""
+    ip_address: str = ""
     protocol: str = "JT808"
     simulated: bool = False
     active: bool = True
@@ -143,6 +144,7 @@ class DevicePatch:
     organization_id: Optional[int] = None
     active: Optional[bool] = None
     plate: Optional[str] = None
+    ip_address: Optional[str] = None
 
 
 @dataclass
@@ -325,8 +327,19 @@ class Store(abc.ABC):
     @abc.abstractmethod
     async def get_device(self, device_id: int) -> Optional[DeviceStatus]: ...
 
+    async def get_device_by_reporting_id(self, reporting_id: str) -> Optional[DeviceStatus]: ...
+
     @abc.abstractmethod
     async def update_device(self, device_id: int, patch: DevicePatch) -> None: ...
+
+    async def provision_device(self, reporting_id: str, plate: str, ip_address: str,
+                               model: str, organization_id: Optional[int]) -> tuple[int, bool]:
+        """Register a device by its reporting ID (admin provisioning).
+
+        Returns (device_id, created) — created is False when a device with that
+        reporting ID already existed and was updated instead.
+        """
+        ...
 
     # vehicles
     @abc.abstractmethod

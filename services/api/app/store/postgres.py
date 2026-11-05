@@ -20,7 +20,8 @@ SELECT d.id, d.reporting_id, d.serial_number, d.model, d.manufacturer, d.plate, 
        d.simulated, d.is_active, d.organization_id, d.vehicle_id, COALESCE(v.registration,''),
        d.first_seen, d.last_seen,
        p.lat, p.lon, p.speed, p.heading, p.altitude, p.acc, p.positioned, p.valid,
-       p.device_time, p.server_time, p.mileage_km, (p.server_time IS NOT NULL) AS has_pos
+       p.device_time, p.server_time, p.mileage_km, (p.server_time IS NOT NULL) AS has_pos,
+       d.ip_address
 FROM tracking_devices d
 LEFT JOIN vehicles v ON v.id = d.vehicle_id
 LEFT JOIN LATERAL (
@@ -39,6 +40,7 @@ def _device_from_row(r: asyncpg.Record) -> DeviceStatus:
         organization_id=r[9], vehicle_id=r[10], vehicle_registration=r[11],
         first_seen=r[12], last_seen=r[13], has_position=r[25],
     )
+    d.ip_address = r[26] or ""
     if d.has_position:
         d.latitude = r[14] or 0.0
         d.longitude = r[15] or 0.0
@@ -115,15 +117,33 @@ class PostgresStore(Store):
         r = await self.pool.fetchrow(_DEVICE_SELECT + " WHERE d.id=$1", device_id)
         return _device_from_row(r) if r else None
 
+    async def get_device_by_reporting_id(self, reporting_id: str) -> Optional[DeviceStatus]:
+        r = await self.pool.fetchrow(_DEVICE_SELECT + " WHERE d.reporting_id=$1", reporting_id)
+        return _device_from_row(r) if r else None
+
     async def update_device(self, device_id: int, patch: DevicePatch) -> None:
         await self.pool.execute("""
             UPDATE tracking_devices SET
                 vehicle_id      = COALESCE($2, vehicle_id),
                 organization_id = COALESCE($3, organization_id),
                 is_active       = COALESCE($4, is_active),
-                plate           = COALESCE($5, plate)
+                plate           = COALESCE($5, plate),
+                ip_address      = COALESCE($6, ip_address)
             WHERE id=$1""",
-            device_id, patch.vehicle_id, patch.organization_id, patch.active, patch.plate)
+            device_id, patch.vehicle_id, patch.organization_id, patch.active, patch.plate, patch.ip_address)
+
+    async def provision_device(self, reporting_id, plate, ip_address, model, organization_id):
+        row = await self.pool.fetchrow("""
+            INSERT INTO tracking_devices (reporting_id, plate, ip_address, model, organization_id, simulated, is_active)
+            VALUES ($1,$2,$3,$4,$5,FALSE,TRUE)
+            ON CONFLICT (reporting_id) DO UPDATE SET
+                plate           = COALESCE(NULLIF(EXCLUDED.plate,''), tracking_devices.plate),
+                ip_address      = COALESCE(NULLIF(EXCLUDED.ip_address,''), tracking_devices.ip_address),
+                model           = COALESCE(NULLIF(EXCLUDED.model,''), tracking_devices.model),
+                organization_id = COALESCE(tracking_devices.organization_id, EXCLUDED.organization_id)
+            RETURNING id, (xmax = 0) AS inserted""",
+            reporting_id, plate, ip_address, model, organization_id)
+        return row[0], bool(row[1])
 
     # --- vehicles ---
     async def list_vehicles(self, org_id: Optional[int]) -> list[Vehicle]:

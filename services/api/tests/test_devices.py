@@ -60,3 +60,70 @@ async def test_get_missing_device_404(ctx):
     client, _ = ctx
     token = await login(client)
     assert (await client.get("/api/devices/999999", headers=auth(token))).status_code == 404
+
+
+async def test_provision_device(ctx):
+    client, _ = ctx
+    token = await login(client)
+    r = await client.post("/api/devices", headers=auth(token),
+                          json={"device_id": "013800138000", "plate": "T-786EUH",
+                                "ip_address": "10.0.0.42", "model": "XV-900-8"})
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["created"] is True
+    dev = body["device"]
+    assert dev["reporting_id"] == "013800138000"
+    assert dev["plate"] == "T-786EUH"
+    assert dev["ip_address"] == "10.0.0.42"
+    assert dev["model"] == "XV-900-8"
+    assert dev["simulated"] is False
+    lst = (await client.get("/api/devices", headers=auth(token))).json()
+    assert any(d["reporting_id"] == "013800138000" for d in lst["devices"])
+
+
+async def test_reprovision_updates_not_duplicates(ctx):
+    client, _ = ctx
+    token = await login(client)
+    await client.post("/api/devices", headers=auth(token), json={"device_id": "555", "plate": "OLD"})
+    r = await client.post("/api/devices", headers=auth(token),
+                          json={"device_id": "555", "plate": "NEW", "ip_address": "1.2.3.4"})
+    assert r.status_code == 201
+    assert r.json()["created"] is False
+    assert r.json()["device"]["plate"] == "NEW"
+    assert r.json()["device"]["ip_address"] == "1.2.3.4"
+    lst = (await client.get("/api/devices", headers=auth(token))).json()
+    assert sum(1 for d in lst["devices"] if d["reporting_id"] == "555") == 1
+
+
+async def test_provision_blank_device_id_rejected(ctx):
+    client, _ = ctx
+    token = await login(client)
+    r = await client.post("/api/devices", headers=auth(token), json={"device_id": "   "})
+    assert r.status_code == 400
+
+
+async def test_patch_device_plate_and_ip(ctx):
+    client, _ = ctx
+    token = await login(client)
+    pr = await client.post("/api/devices", headers=auth(token), json={"device_id": "777"})
+    did = pr.json()["device"]["id"]
+    r = await client.patch(f"/api/devices/{did}", headers=auth(token),
+                           json={"ip_address": "192.168.1.9", "plate": "P9"})
+    assert r.status_code == 200
+    assert r.json()["ip_address"] == "192.168.1.9"
+    assert r.json()["plate"] == "P9"
+
+
+async def test_readonly_cannot_provision(ctx):
+    client, app = ctx
+    from app.security import hash_password
+    from app.store.base import User
+    store = app.state.store
+    org = await store.create_organization("ProvOrg", "provorg")
+    rid = await store.role_id_by_name("readonly")
+    await store.create_user(User(id=0, role_id=rid, role_name="readonly", email="ro-prov@test.local",
+                                 password_hash=hash_password("pwpwpwpw"), is_active=True,
+                                 organization_id=org))
+    token = await login(client, "ro-prov@test.local", "pwpwpwpw")
+    r = await client.post("/api/devices", headers=auth(token), json={"device_id": "999"})
+    assert r.status_code == 403

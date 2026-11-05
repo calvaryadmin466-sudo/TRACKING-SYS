@@ -40,6 +40,7 @@ def device_to_dict(d: DeviceStatus, s: Settings) -> dict:
         "model": d.model,
         "manufacturer": d.manufacturer,
         "plate": d.plate,
+        "ip_address": d.ip_address,
         "protocol": d.protocol,
         "simulated": d.simulated,
         "active": d.active,
