@@ -1,5 +1,5 @@
 import { get } from "../api.js";
-import { baseLayers } from "../map.js";
+import { baseLayers } from "../map.js?v=20261105";
 import { openMessageDialog } from "../message_dialog.js";
 import {
   icon, refreshIcons, qs, esc, fmtAge, fmtDateTime, statusBadge, simBadge, sevBadge, num, emptyHtml,
@@ -13,12 +13,15 @@ export async function render(root, ctx) {
 
   root.innerHTML = `
     <div class="page-head">
-      <a class="btn ghost icon" href="#/devices">${icon("arrow-left")}</a>
-      <h2>${esc(name)}</h2> ${statusBadge(d)} ${simBadge(d)}
-      <div class="grow"></div>
-      <button class="btn" id="v-btn-msg">${icon("send")} Message</button>
-      <a class="btn" href="#/tracking">${icon("map-pin")} Track</a>
-      <a class="btn" href="#/video">${icon("video")} Cameras</a>
+      <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center">
+        <a class="btn ghost icon" href="#/devices">${icon("arrow-left")}</a>
+        <h2>${esc(name)}</h2> ${statusBadge(d)} ${simBadge(d)}
+      </div>
+      <div class="veh-actions">
+        <button class="btn" id="v-btn-msg">${icon("send")} Message</button>
+        <a class="btn" href="#/tracking">${icon("map-pin")} Track</a>
+        <a class="btn" href="#/video">${icon("video")} Cameras</a>
+      </div>
     </div>
     <div class="grid-2">
       <div class="card"><div class="card-head">${icon("truck")}<h3>Identity &amp; assignment</h3></div>
@@ -66,6 +69,7 @@ export async function render(root, ctx) {
     kv("Assigned driver", esc(driverName)) +
     kv("Model", esc(d.model || "—")) + kv("Manufacturer", esc(d.manufacturer || "—")) +
     kv("Reporting ID", `<span class="mono">${esc(d.reporting_id)}</span>`) +
+    kv("SIM / Phone", d.sim_number ? `<span class="mono">${esc(d.sim_number)}</span>` : "—") +
     kv("Hardware serial", `<span class="mono">${esc(d.serial_number || "—")}</span>`) +
     kv("Protocol", esc(d.protocol || "—")) + kv("Active", d.active ? "yes" : "no");
   qs("#v-telemetry").innerHTML =
@@ -78,7 +82,9 @@ export async function render(root, ctx) {
 
   // Map with last position + recent track
   const map = L.map(qs("#v-map"), { zoomControl: true }).setView(p ? [p.latitude, p.longitude] : [22.57, 88.36], p ? 14 : 4);
-  baseLayers()["Dark"].addTo(map);
+  const layers = baseLayers();
+  layers["Satellite"].addTo(map);
+  L.control.layers(layers, {}, { position: "topright" }).addTo(map);
   setTimeout(() => map.invalidateSize(), 80);
   try {
     const hist = await get(`/api/devices/${id}/history?limit=300`);

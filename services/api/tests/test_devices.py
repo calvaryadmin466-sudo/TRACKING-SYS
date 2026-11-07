@@ -67,7 +67,8 @@ async def test_provision_device(ctx):
     token = await login(client)
     r = await client.post("/api/devices", headers=auth(token),
                           json={"device_id": "013800138000", "plate": "T-786EUH",
-                                "ip_address": "10.0.0.42", "model": "XV-900-8"})
+                                "ip_address": "10.0.0.42", "model": "XV-900-8",
+                                "sim_number": "+254712345678"})
     assert r.status_code == 201, r.text
     body = r.json()
     assert body["created"] is True
@@ -76,6 +77,7 @@ async def test_provision_device(ctx):
     assert dev["plate"] == "T-786EUH"
     assert dev["ip_address"] == "10.0.0.42"
     assert dev["model"] == "XV-900-8"
+    assert dev["sim_number"] == "+254712345678"
     assert dev["simulated"] is False
     lst = (await client.get("/api/devices", headers=auth(token))).json()
     assert any(d["reporting_id"] == "013800138000" for d in lst["devices"])
@@ -86,11 +88,13 @@ async def test_reprovision_updates_not_duplicates(ctx):
     token = await login(client)
     await client.post("/api/devices", headers=auth(token), json={"device_id": "555", "plate": "OLD"})
     r = await client.post("/api/devices", headers=auth(token),
-                          json={"device_id": "555", "plate": "NEW", "ip_address": "1.2.3.4"})
+                          json={"device_id": "555", "plate": "NEW", "ip_address": "1.2.3.4",
+                                "sim_number": "+254700000000"})
     assert r.status_code == 201
     assert r.json()["created"] is False
     assert r.json()["device"]["plate"] == "NEW"
     assert r.json()["device"]["ip_address"] == "1.2.3.4"
+    assert r.json()["device"]["sim_number"] == "+254700000000"
     lst = (await client.get("/api/devices", headers=auth(token))).json()
     assert sum(1 for d in lst["devices"] if d["reporting_id"] == "555") == 1
 
@@ -108,10 +112,11 @@ async def test_patch_device_plate_and_ip(ctx):
     pr = await client.post("/api/devices", headers=auth(token), json={"device_id": "777"})
     did = pr.json()["device"]["id"]
     r = await client.patch(f"/api/devices/{did}", headers=auth(token),
-                           json={"ip_address": "192.168.1.9", "plate": "P9"})
+                           json={"ip_address": "192.168.1.9", "plate": "P9", "sim_number": "+254799999999"})
     assert r.status_code == 200
     assert r.json()["ip_address"] == "192.168.1.9"
     assert r.json()["plate"] == "P9"
+    assert r.json()["sim_number"] == "+254799999999"
 
 
 async def test_readonly_cannot_provision(ctx):

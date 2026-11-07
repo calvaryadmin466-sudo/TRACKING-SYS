@@ -18,11 +18,17 @@ type PostgresStore struct {
 // NewPostgresStore connects to the database at url (a postgres:// DSN) and
 // verifies connectivity. The schema is created by the migrations in /migrations.
 func NewPostgresStore(ctx context.Context, url string) (*PostgresStore, error) {
-	pool, err := pgxpool.New(ctx, url)
+	cfg, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		return nil, fmt.Errorf("store: parse config: %w", err)
+	}
+	cfg.MaxConns = 3
+	cfg.MinConns = 1
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("store: connect: %w", err)
 	}
-	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	pingCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	if err := pool.Ping(pingCtx); err != nil {
 		pool.Close()

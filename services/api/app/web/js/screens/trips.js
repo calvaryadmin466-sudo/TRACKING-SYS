@@ -1,5 +1,5 @@
 import { get, getToken } from "../api.js";
-import { baseLayers } from "../map.js";
+import { baseLayers } from "../map.js?v=20261105";
 import { icon, refreshIcons, qs, qsa, esc, fmtDateTime, num, emptyHtml, loadingHtml, toast } from "../ui.js";
 
 // Speed tier palette (matches geo_playback.py)
@@ -68,14 +68,14 @@ export async function render(root, ctx) {
       </label>
       <button class="btn" id="t-apply">${icon("filter")} Apply</button>
     </div>
-    <div class="grid-2">
-      <div class="card">
+    <div class="trip-layout">
+      <div class="card trip-list-card">
         <div class="card-head">${icon("list")}<h3>Trips</h3></div>
         <div id="t-list" style="max-height:460px;overflow:auto"></div>
       </div>
-      <div class="card">
+      <div class="card trip-map-card">
         <div class="card-head">${icon("map")}<h3>Route Playback</h3></div>
-        <div style="position:relative;height:460px">
+        <div class="trip-map-container">
           <div class="mapel" id="t-map"></div>
           <!-- Speed legend overlay -->
           <div id="t-legend" style="
@@ -98,7 +98,9 @@ export async function render(root, ctx) {
   refreshIcons(root);
 
   const map = L.map(qs("#t-map"), { zoomControl: true }).setView([22.57, 88.36], 5);
-  baseLayers()["Street"].addTo(map);
+  const layers = baseLayers();
+  layers["Satellite"].addTo(map);
+  L.control.layers(layers, {}, { position: "topright" }).addTo(map);
   setTimeout(() => map.invalidateSize(), 80);
   let layer = null;
 

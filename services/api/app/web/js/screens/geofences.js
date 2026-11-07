@@ -1,5 +1,5 @@
 import { get, post, del } from "../api.js";
-import { baseLayers } from "../map.js";
+import { baseLayers } from "../map.js?v=20261105";
 import {
   icon, refreshIcons, qs, qsa, esc, emptyHtml, toast, modal, closeModal, confirmDialog,
 } from "../ui.js";
@@ -22,7 +22,9 @@ export async function render(root, ctx) {
   refreshIcons(root);
 
   const map = L.map(qs("#gf-map"), { zoomControl: true }).setView([22.57, 88.36], 11);
-  baseLayers()["Dark"].addTo(map);
+  const layers = baseLayers();
+  layers["Satellite"].addTo(map);
+  L.control.layers(layers, {}, { position: "topright" }).addTo(map);
   setTimeout(() => map.invalidateSize(), 80);
   const shapes = L.layerGroup().addTo(map);
   let draw = null, geofences = [];

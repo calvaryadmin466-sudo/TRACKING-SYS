@@ -1,5 +1,5 @@
 import { live } from "../store.js";
-import { baseLayers, COLORS, vehicleIcon } from "../map.js";
+import { baseLayers, COLORS, vehicleIcon } from "../map.js?v=20261105";
 import { openMessageDialog } from "../message_dialog.js";
 import {
   icon, refreshIcons, qs, qsa, esc, fmtAge, fmtDateTime, num, deviceStatus, isMoving, statusBadge, simBadge,
@@ -59,7 +59,7 @@ export async function render(root, ctx) {
 
   const map = L.map(qs("#map"), { zoomControl: true, attributionControl: true }).setView([22.5726, 88.3639], 11);
   const layers = baseLayers();
-  layers["Street"].addTo(map);
+  layers["Satellite"].addTo(map);
   L.control.layers(layers, {}, { position: "topright" }).addTo(map);
 
   const clusterGroup = L.markerClusterGroup({ maxClusterRadius: 48, showCoverageOnHover: false });

@@ -9,11 +9,13 @@
 # Supabase SQL editor first (see DEPLOYMENT.md / the migrations/ folder).
 services:
   api:
-    depends_on: []
+    depends_on: !reset []
     environment:
       DATABASE_URL: "${SUPABASE_DB_URL}"
+    volumes:
+      - ./services/api/app/web:/app/app/web:ro
 
   ingestion:
-    depends_on: []
+    depends_on: !reset []
     environment:
       DATABASE_URL: "${SUPABASE_DB_URL}"

@@ -1,5 +1,5 @@
 import { get, post } from "../api.js";
-import { baseLayers } from "../map.js";
+import { baseLayers } from "../map.js?v=20261105";
 import {
   icon, refreshIcons, qs, qsa, esc, fmtDateTime, sevBadge, emptyHtml, loadingHtml, toast,
   modal, closeModal,
@@ -65,7 +65,7 @@ export async function render(root, ctx) {
     const [lat, lon] = latlon.split(",").map(Number);
     modal({ title: "Event location", bodyHtml: `<div style="position:relative;height:300px"><div class="mapel" id="loc-map"></div></div>`,
       actions: [{ label: "Close", onClick: closeModal }],
-      onMount: () => { const m = L.map(qs("#loc-map")).setView([lat, lon], 15); baseLayers()["Dark"].addTo(m);
+      onMount: () => { const m = L.map(qs("#loc-map")).setView([lat, lon], 15); baseLayers()["Satellite"].addTo(m);
         L.marker([lat, lon]).addTo(m); setTimeout(() => m.invalidateSize(), 60); } });
   }
 

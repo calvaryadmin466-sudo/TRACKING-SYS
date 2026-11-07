@@ -53,12 +53,13 @@ async def provision_device(body: DeviceCreate,
     # with no organization provisions an unassigned device (visible platform-wide).
     org_id = principal.organization_id
     dev_id, created = await store.provision_device(
-        reporting_id, body.plate.strip(), body.ip_address.strip(), body.model.strip(), org_id)
+        reporting_id, body.plate.strip(), body.ip_address.strip(), body.model.strip(), org_id,
+        sim_number=body.sim_number.strip())
     d = await store.get_device(dev_id)
     await store.save_audit(AuditEntry(
         action="provision_device" if created else "reprovision_device", entity="device",
         entity_id=str(dev_id), user_id=principal.user_id,
-        detail=f"reporting_id={reporting_id} plate={body.plate} ip={body.ip_address}"))
+        detail=f"reporting_id={reporting_id} plate={body.plate} ip={body.ip_address} sim={body.sim_number}"))
     return {"device": device_to_dict(d, settings), "created": created}
 
 
@@ -92,7 +93,9 @@ async def update_device(device_id: int, body: DeviceUpdate,
             raise HTTPException(status.HTTP_403_FORBIDDEN, "vehicle belongs to another organization")
 
     await store.update_device(device_id, DevicePatch(
-        vehicle_id=body.vehicle_id, active=body.active, plate=body.plate, ip_address=body.ip_address))
+        vehicle_id=body.vehicle_id, active=body.active, plate=body.plate,
+        ip_address=body.ip_address,
+        sim_number=body.sim_number.strip() if body.sim_number is not None else None))
     await store.save_audit(AuditEntry(action="update_device", entity="device",
                                       entity_id=str(device_id), user_id=principal.user_id,
                                       detail=body.model_dump_json()))

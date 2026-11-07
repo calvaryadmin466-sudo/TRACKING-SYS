@@ -8,9 +8,13 @@ import {
 export async function render(root, ctx) {
   const canManage = ["super_admin", "company_admin", "fleet_manager"].includes(ctx.user.role);
   root.innerHTML = `
-    <div class="page-head"><h2>Device Management</h2><div class="grow"></div>
-      <div class="input-icon">${icon("search")}<input class="input" id="dev-search" placeholder="Search reporting ID, serial, vehicle"></div>
-      ${canManage ? `<button class="btn primary" id="dev-register">${icon("plus")} Register device</button>` : ""}</div>
+    <div class="page-head">
+      <h2>Device Management</h2>
+      <div class="row" style="gap:10px;flex-wrap:wrap;width:100%">
+        <div class="input-icon grow">${icon("search")}<input class="input" id="dev-search" placeholder="Search reporting ID, serial, vehicle"></div>
+        ${canManage ? `<button class="btn primary" id="dev-register">${icon("plus")} Register device</button>` : ""}
+      </div>
+    </div>
     <div class="card"><div class="table-wrap" id="dev-table">${loadingHtml()}</div></div>`;
   refreshIcons(root);
 
@@ -28,17 +32,18 @@ export async function render(root, ctx) {
     const rows = devices.filter((d) => {
       if (!search) return true;
       const q = search.toLowerCase();
-      return `${d.reporting_id} ${d.serial_number} ${d.vehicle_registration || ""} ${d.plate || ""} ${d.model}`.toLowerCase().includes(q);
+      return `${d.reporting_id} ${d.sim_number || ""} ${d.serial_number} ${d.vehicle_registration || ""} ${d.plate || ""} ${d.model}`.toLowerCase().includes(q);
     });
     const el = qs("#dev-table");
     if (!el) return;
     if (!rows.length) { el.innerHTML = emptyHtml("cpu", "No devices", "Devices appear here once they connect or are registered."); refreshIcons(el); return; }
     el.innerHTML = `<table class="tbl"><thead><tr>
-      <th>Status</th><th>Reporting ID</th><th>Plate</th><th>Decoder IP</th><th>Serial no.</th><th>Model</th><th>Vehicle</th>
+      <th>Status</th><th>Reporting ID</th><th>Phone / SIM</th><th>Plate</th><th>Decoder IP</th><th>Serial no.</th><th>Model</th><th>Vehicle</th>
       <th>Last comm</th><th>Last GPS</th><th>Active</th><th></th></tr></thead><tbody>
       ${rows.map((d) => `<tr>
         <td>${statusBadge(d)} ${simBadge(d)}</td>
         <td class="mono">${esc(d.reporting_id)}</td>
+        <td class="mono">${d.sim_number ? esc(d.sim_number) : "<span class='dim'>—</span>"}</td>
         <td>${d.plate ? esc(d.plate) : "<span class='dim'>—</span>"}</td>
         <td class="mono">${d.ip_address ? esc(d.ip_address) : "<span class='dim'>—</span>"}</td>
         <td class="mono">${esc(d.serial_number || "—")}</td>
@@ -120,6 +125,8 @@ export async function render(root, ctx) {
         <p class="muted" style="margin:0 0 14px;font-size:12.5px">Pre-register an MDVR by its identifiers. It shows up immediately and links automatically when the unit dials in over JT/T 808.</p>
         <div class="field-group"><label class="field" for="rd-id">Device ID — JT/T 808 reporting ID</label>
           <input class="input" id="rd-id" placeholder="e.g. 013800138000" autocomplete="off" inputmode="numeric"></div>
+        <div class="field-group"><label class="field" for="rd-sim">Phone number (SIM / Data)</label>
+          <input class="input" id="rd-sim" placeholder="e.g. +254712345678" autocomplete="off" inputmode="tel"></div>
         <div class="field-group"><label class="field" for="rd-plate">Plate number</label>
           <input class="input" id="rd-plate" placeholder="e.g. T-786EUH"></div>
         <div class="field-group"><label class="field" for="rd-ip">Decoder IP address</label>
@@ -133,7 +140,7 @@ export async function render(root, ctx) {
           if (!device_id) { toast("Device ID is required", "warn"); return; }
           try {
             const r = await post("/api/devices", {
-              device_id, plate: qs("#rd-plate").value.trim(),
+              device_id, sim_number: qs("#rd-sim").value.trim(), plate: qs("#rd-plate").value.trim(),
               ip_address: qs("#rd-ip").value.trim(), model: qs("#rd-model").value.trim() });
             toast(r.created ? "Device registered" : "Device details updated", "success");
             closeModal(); load();
@@ -148,6 +155,8 @@ export async function render(root, ctx) {
     modal({
       title: `Edit — ${d.reporting_id}`,
       bodyHtml: `
+        <div class="field-group"><label class="field" for="ed-sim">Phone number (SIM / Data)</label>
+          <input class="input" id="ed-sim" value="${esc(d.sim_number || "")}" placeholder="e.g. +254712345678"></div>
         <div class="field-group"><label class="field" for="ed-plate">Plate number</label>
           <input class="input" id="ed-plate" value="${esc(d.plate || "")}"></div>
         <div class="field-group"><label class="field" for="ed-ip">Decoder IP address</label>
@@ -155,7 +164,11 @@ export async function render(root, ctx) {
       actions: [{ label: "Cancel", onClick: closeModal },
         { label: "Save", variant: "primary", onClick: async () => {
           try {
-            await patch(`/api/devices/${id}`, { plate: qs("#ed-plate").value.trim(), ip_address: qs("#ed-ip").value.trim() });
+            await patch(`/api/devices/${id}`, {
+              sim_number: qs("#ed-sim").value.trim(),
+              plate: qs("#ed-plate").value.trim(),
+              ip_address: qs("#ed-ip").value.trim()
+            });
             toast("Device updated", "success"); closeModal(); load();
           } catch (e) { toast(e.detail || "Update failed", "error"); }
         } }],

@@ -5,8 +5,8 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -o /out/ingestion-server ./cmd/ingestion-server && \
-    CGO_ENABLED=0 go build -o /out/simulator ./cmd/simulator
+RUN CGO_ENABLED=0 GOGC=50 GOMAXPROCS=2 go build -o /out/ingestion-server ./cmd/ingestion-server && \
+    CGO_ENABLED=0 GOGC=50 GOMAXPROCS=2 go build -o /out/simulator ./cmd/simulator
 
 FROM alpine:3.20
 RUN adduser -D -u 10001 app

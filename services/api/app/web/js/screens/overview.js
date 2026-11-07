@@ -1,6 +1,6 @@
 import { get } from "../api.js";
 import { live } from "../store.js";
-import { COLORS } from "../map.js";
+import { COLORS } from "../map.js?v=20261105";
 import { icon, refreshIcons, qs, fmtAge, fmtDateTime, num, deviceStatus, isMoving, sevBadge, esc, emptyHtml, loadingHtml } from "../ui.js";
 
 const PERIODS = [

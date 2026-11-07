@@ -4,7 +4,7 @@ WORKDIR /app
 # Runtime deps only (tests excluded).
 COPY requirements.txt .
 RUN pip install --no-cache-dir \
-    fastapi==0.115.6 "uvicorn[standard]==0.34.0" pyjwt==2.10.1 bcrypt==4.2.1 asyncpg==0.30.0
+    fastapi==0.115.6 "uvicorn[standard]==0.34.0" pyjwt==2.10.1 bcrypt==4.2.1 asyncpg==0.30.0 httpx==0.28.1
 
 COPY app ./app
 

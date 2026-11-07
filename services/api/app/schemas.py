@@ -23,6 +23,7 @@ class DeviceUpdate(BaseModel):
     active: Optional[bool] = None
     plate: Optional[str] = None
     ip_address: Optional[str] = Field(default=None, max_length=64)
+    sim_number: Optional[str] = Field(default=None, max_length=64)
 
 
 class DeviceCreate(BaseModel):
@@ -32,3 +33,4 @@ class DeviceCreate(BaseModel):
     plate: str = Field(default="", max_length=64)
     ip_address: str = Field(default="", max_length=64, description="MDVR decoder IP address")
     model: str = Field(default="", max_length=64)
+    sim_number: str = Field(default="", max_length=64, description="SIM card / data phone number")

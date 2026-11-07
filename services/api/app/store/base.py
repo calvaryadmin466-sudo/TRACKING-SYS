@@ -82,6 +82,7 @@ class DeviceStatus:
     manufacturer: str = ""
     plate: str = ""
     ip_address: str = ""
+    sim_number: str = ""
     protocol: str = "JT808"
     simulated: bool = False
     active: bool = True
@@ -145,6 +146,7 @@ class DevicePatch:
     active: Optional[bool] = None
     plate: Optional[str] = None
     ip_address: Optional[str] = None
+    sim_number: Optional[str] = None
 
 
 @dataclass
@@ -333,7 +335,8 @@ class Store(abc.ABC):
     async def update_device(self, device_id: int, patch: DevicePatch) -> None: ...
 
     async def provision_device(self, reporting_id: str, plate: str, ip_address: str,
-                               model: str, organization_id: Optional[int]) -> tuple[int, bool]:
+                               model: str, organization_id: Optional[int],
+                               sim_number: str = "") -> tuple[int, bool]:
         """Register a device by its reporting ID (admin provisioning).
 
         Returns (device_id, created) — created is False when a device with that

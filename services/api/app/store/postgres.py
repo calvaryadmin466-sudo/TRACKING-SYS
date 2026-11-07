@@ -21,7 +21,7 @@ SELECT d.id, d.reporting_id, d.serial_number, d.model, d.manufacturer, d.plate, 
        d.first_seen, d.last_seen,
        p.lat, p.lon, p.speed, p.heading, p.altitude, p.acc, p.positioned, p.valid,
        p.device_time, p.server_time, p.mileage_km, (p.server_time IS NOT NULL) AS has_pos,
-       d.ip_address
+       d.ip_address, d.sim_number
 FROM tracking_devices d
 LEFT JOIN vehicles v ON v.id = d.vehicle_id
 LEFT JOIN LATERAL (
@@ -41,6 +41,7 @@ def _device_from_row(r: asyncpg.Record) -> DeviceStatus:
         first_seen=r[12], last_seen=r[13], has_position=r[25],
     )
     d.ip_address = r[26] or ""
+    d.sim_number = r[27] or ""
     if d.has_position:
         d.latitude = r[14] or 0.0
         d.longitude = r[15] or 0.0
@@ -62,7 +63,7 @@ class PostgresStore(Store):
         self._pool: Optional[asyncpg.Pool] = None
 
     async def startup(self) -> None:
-        self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=10)
+        self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=4)
 
     async def close(self) -> None:
         if self._pool:
@@ -128,21 +129,23 @@ class PostgresStore(Store):
                 organization_id = COALESCE($3, organization_id),
                 is_active       = COALESCE($4, is_active),
                 plate           = COALESCE($5, plate),
-                ip_address      = COALESCE($6, ip_address)
+                ip_address      = COALESCE($6, ip_address),
+                sim_number      = COALESCE($7, sim_number)
             WHERE id=$1""",
-            device_id, patch.vehicle_id, patch.organization_id, patch.active, patch.plate, patch.ip_address)
+            device_id, patch.vehicle_id, patch.organization_id, patch.active, patch.plate, patch.ip_address, patch.sim_number)
 
-    async def provision_device(self, reporting_id, plate, ip_address, model, organization_id):
+    async def provision_device(self, reporting_id, plate, ip_address, model, organization_id, sim_number=""):
         row = await self.pool.fetchrow("""
-            INSERT INTO tracking_devices (reporting_id, plate, ip_address, model, organization_id, simulated, is_active)
-            VALUES ($1,$2,$3,$4,$5,FALSE,TRUE)
+            INSERT INTO tracking_devices (reporting_id, plate, ip_address, model, organization_id, sim_number, simulated, is_active)
+            VALUES ($1,$2,$3,$4,$5,$6,FALSE,TRUE)
             ON CONFLICT (reporting_id) DO UPDATE SET
                 plate           = COALESCE(NULLIF(EXCLUDED.plate,''), tracking_devices.plate),
                 ip_address      = COALESCE(NULLIF(EXCLUDED.ip_address,''), tracking_devices.ip_address),
                 model           = COALESCE(NULLIF(EXCLUDED.model,''), tracking_devices.model),
+                sim_number      = COALESCE(NULLIF(EXCLUDED.sim_number,''), tracking_devices.sim_number),
                 organization_id = COALESCE(tracking_devices.organization_id, EXCLUDED.organization_id)
             RETURNING id, (xmax = 0) AS inserted""",
-            reporting_id, plate, ip_address, model, organization_id)
+            reporting_id, plate, ip_address, model, organization_id, sim_number)
         return row[0], bool(row[1])
 
     # --- vehicles ---
